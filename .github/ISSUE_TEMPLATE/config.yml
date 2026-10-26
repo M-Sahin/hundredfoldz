@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security problem
+    url: https://github.com/M-Sahin/hundredfoldz/security/advisories/new
+    about: Report security issues privately, not in a public issue.
+  - name: A question about the MTG Master skill
+    url: https://github.com/M-Sahin/mtg-master/issues
+    about: The Claude Skill Hundredfoldz builds decks with has its own repository.
