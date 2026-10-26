@@ -33,7 +33,7 @@ export default function Page() {
           <li>Supabase for accounts and saved decks.</li>
         </ul>
         <p>
-          Questions or a request about your data: open an issue on <a href="https://github.com/M-Sahin/mtg-master/issues">GitHub</a>.
+          Questions or a request about your data: open an issue on <a href="https://github.com/M-Sahin/hundredfoldz/issues">GitHub</a>.
         </p>
       </main>
       <SiteFooter />

@@ -33,7 +33,7 @@ writeFileSync(entry, `export * from "../lib/shared/ev"; export { nameKey } from 
 await esbuild.build({ entryPoints: [entry], bundle: true, platform: "node", format: "esm", outfile: bundle, logLevel: "warning" });
 const { summarize, namesPerBox, nameKey, topCards, gross, PACKS_PER_BOX } = await import(pathToFileURL(bundle).href);
 
-const UA = { "User-Agent": "hundredfoldz-mtg-master/1.0 (+https://github.com/M-Sahin/mtg-master)", Accept: "application/json" };
+const UA = { "User-Agent": "hundredfoldz/1.0 (+https://github.com/M-Sahin/hundredfoldz)", Accept: "application/json" };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let last = 0;
 async function scryfall(path, body) {

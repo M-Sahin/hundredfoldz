@@ -2,7 +2,16 @@
   "name": "hundredfoldz",
   "version": "0.1.0",
   "private": true,
-  "description": "Commander deckbuilder: five seed cards in, a Bracket 3 deck out. Uses the mtg-master Claude skill.",
+  "description": "Commander deckbuilder: five seed cards in, a full deck out. Built on the mtg-master Claude skill.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/M-Sahin/hundredfoldz"
+  },
+  "license": "MIT",
+  "skill": {
+    "repo": "https://github.com/M-Sahin/mtg-master",
+    "ref": "v1.0.3"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",

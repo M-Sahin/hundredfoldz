@@ -8,7 +8,7 @@ import { useAccount } from "../lib/client/account";
 
 export type NavKey = "build" | "bracket" | "ev" | "decks" | null;
 
-const REPO = "https://github.com/M-Sahin/mtg-master";
+const REPO = "https://github.com/M-Sahin/hundredfoldz";
 
 const LINKS: { key: NavKey; href: string; label: string }[] = [
   { key: "build", href: "/", label: "Build a deck" },

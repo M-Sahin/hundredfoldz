@@ -4,7 +4,7 @@ import type { CardInfo, Color } from "../shared/types";
 
 const API = "https://api.scryfall.com";
 const HEADERS = {
-  "User-Agent": "hundredfoldz-mtg-master/1.0 (+https://github.com/M-Sahin/mtg-master)",
+  "User-Agent": "hundredfoldz/1.0 (+https://github.com/M-Sahin/hundredfoldz)",
   Accept: "application/json",
 };
 

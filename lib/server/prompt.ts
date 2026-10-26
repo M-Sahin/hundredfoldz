@@ -1,5 +1,5 @@
 // Builds Claude's system prompt from the mtg-master skill (lib/skill/content.ts, generated
-// from ../mtg-master by scripts/sync-skill.mjs) plus an adapter for this app's tools.
+// from the pinned skill release by scripts/sync-skill.mjs) plus an adapter for this app's tools.
 import { shapeText } from "../shared/shape";
 import { bracketInfo, type BracketInfo } from "../shared/bracket";
 import type { Budget, CardInfo, GenerateRequest } from "../shared/types";

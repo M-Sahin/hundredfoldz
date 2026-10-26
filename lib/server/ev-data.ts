@@ -9,7 +9,7 @@ const cache = new Map<string, { at: number; value: unknown }>();
 
 export function evDataUrl(): string {
   const u = (process.env.EV_DATA_URL ?? "").trim().replace(/\/+$/, "");
-  return /^https:\/\/[^\s"'<>]+$/.test(u) ? u : "https://raw.githubusercontent.com/M-Sahin/mtg-master/ev-data/ev";
+  return /^https:\/\/[^\s"'<>]+$/.test(u) ? u : "https://raw.githubusercontent.com/M-Sahin/hundredfoldz/ev-data/ev";
 }
 
 async function get<T>(path: string, fetcher: typeof fetch = fetch): Promise<T | null> {
