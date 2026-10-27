@@ -821,7 +821,7 @@ await shot("phone-decks", { width: 390, height: 844 }, async (p) => {
               <span style="width:52px;height:52px;display:block">${logo}</span>Hundredfoldz
             </div>
             <div style="font-family:var(--font-display);font-weight:800;font-size:86px;line-height:1.02;margin-top:46px">Five cards in.<br>A hundred out.</div>
-            <div style="font-size:31px;line-height:1.3;margin-top:24px;color:#c9cdf0;max-width:520px">Free AI Commander deck builder for Magic: The Gathering</div>
+            <div style="font-size:31px;line-height:1.3;margin-top:24px;color:#c9cdf0">Free AI Commander deck builder<br>for Magic: The Gathering</div>
             <div style="margin-top:auto;font-size:26px;color:#e2b04a;font-weight:700">hundredfoldz.app</div>
           </div>
         </div>`;
