@@ -5,10 +5,10 @@ import { requestOrigin } from "./deck-meta";
 import { serverConfig } from "./config";
 
 export const SITE_NAME = "Hundredfoldz";
-export const SITE_TAGLINE = "Free AI Commander deck builder";
-export const HOME_TITLE = "Hundredfoldz: free AI Commander (EDH) deck builder for MTG";
+export const SITE_TAGLINE = "Open-source AI Commander deckbuilder";
+export const HOME_TITLE = "Hundredfoldz: open-source AI Commander (EDH) deckbuilder for MTG";
 export const SITE_DESCRIPTION =
-  "Free AI Commander (EDH) deck builder for Magic: The Gathering. Pick five cards and Claude builds a legal 100-card deck around them in the bracket you choose, checked card by card on Scryfall. Free bracket checker and booster box EV calculator.";
+  "Open-source AI Commander (EDH) deckbuilder for Magic: The Gathering. Pick five cards and Claude builds a legal 100-card deck around them in the bracket you choose, checked card by card on Scryfall. Free bracket checker and booster box EV calculator.";
 
 export function configuredOrigin(): string | null {
   const site = process.env.SITE_URL?.trim();
