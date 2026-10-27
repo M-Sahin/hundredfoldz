@@ -439,8 +439,8 @@ await run(
 await run("35-popular-commanders", { width: 390, height: 844 }, async (p) => {
   const api = await p.request.get(`${base}/api/trending`);
   const t = await api.json().catch(() => ({}));
-  console.log(`popular commanders: ${api.status()}; new since ${t.since}: ${(t.fresh ?? []).map((c) => c.name).join(", ")}; all time: ${(t.allTime ?? []).map((c) => c.name).join(", ")}`);
-  if (api.status() !== 200 || !(t.allTime ?? []).length) errors.push(`/api/trending: ${api.status()} ${JSON.stringify(t).slice(0, 200)}`);
+  console.log(`popular commanders: ${api.status()}; new since ${t.since}: ${(t.fresh ?? []).map((c) => c.name).join(", ")}`);
+  if (api.status() !== 200 || !(t.fresh ?? []).length) errors.push(`/api/trending: ${api.status()} ${JSON.stringify(t).slice(0, 200)}`);
   await p.route("**/api/config", async (route) => {
     const res = await route.fetch();
     const c = await res.json();
@@ -449,7 +449,8 @@ await run("35-popular-commanders", { width: 390, height: 844 }, async (p) => {
   await p.reload({ waitUntil: "networkidle" });
   await p.waitForSelector("[data-testid=trending] .trending-card", { timeout: 20000 });
   await p.locator("[data-testid=trending]").scrollIntoViewIfNeeded();
-  await sweep(p, "popular commanders");
+  const sideways = await p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  if (sideways > 1) errors.push(`the popular commanders row makes the phone page scroll sideways (${sideways}px)`);
   await p.screenshot({ path: `${out}/35-popular-commanders-row.png` });
   const first = await p.locator("[data-testid=trending] .trending-name").first().innerText();
   await p.locator("[data-testid=trending] .trending-card").first().click();

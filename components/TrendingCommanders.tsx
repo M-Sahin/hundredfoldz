@@ -1,49 +1,27 @@
 "use client";
-// Under "Surprise me": commanders to start from, the most-built new ones and the all-time
-// favorites (Scryfall's EDHREC rank). Tapping one puts it in the first slot as the commander.
+// Under "Surprise me": the most-played new commanders (Scryfall's EDHREC rank among commanders
+// first printed in the last few months). Tapping one puts it in the first slot as the commander.
 import { useEffect, useState } from "react";
 import { IdentityPips } from "./CardFace";
 import type { TrendingCommander } from "../lib/server/trending";
 
-type Tab = "fresh" | "allTime";
-
 export function TrendingCommanders({ onPick }: { onPick: (name: string) => void }) {
-  const [data, setData] = useState<{ fresh: TrendingCommander[]; allTime: TrendingCommander[] } | null>(null);
-  const [tab, setTab] = useState<Tab>("fresh");
+  const [list, setList] = useState<TrendingCommander[] | null>(null);
   useEffect(() => {
     let live = true;
     fetch("/api/trending")
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (!live || !j) return;
-        setData(j);
-        if (!j.fresh?.length) setTab("allTime");
-      })
+      .then((j) => live && setList(j?.fresh ?? null))
       .catch(() => {});
     return () => {
       live = false;
     };
   }, []);
-  if (!data || (!data.fresh.length && !data.allTime.length)) return null;
-  const list = data[tab];
+  if (!list?.length) return null;
   return (
     <div className="trending" data-testid="trending">
       <div className="trending-head">
-        <span className="examples-label">Popular commanders</span>
-        <span className="trending-tabs" role="tablist" aria-label="Which commanders">
-          {(
-            [
-              ["fresh", "New"],
-              ["allTime", "All time"],
-            ] as [Tab, string][]
-          )
-            .filter(([k]) => data[k].length)
-            .map(([k, label]) => (
-              <button key={k} type="button" role="tab" aria-selected={tab === k} className={`trending-tab ${tab === k ? "is-on" : ""}`} onClick={() => setTab(k)}>
-                {label}
-              </button>
-            ))}
-        </span>
+        <span className="examples-label">Popular new commanders</span>
       </div>
       <ul className="trending-list">
         {list.map((c) => (
@@ -59,7 +37,7 @@ export function TrendingCommanders({ onPick }: { onPick: (name: string) => void 
           </li>
         ))}
       </ul>
-      <p className="trending-note">{tab === "fresh" ? "New commanders from the last few months, " : "The commanders "}most played on EDHREC. Tap one to build around it.</p>
+      <p className="trending-note">From the last few months, most played on EDHREC. Tap one to build around it.</p>
     </div>
   );
 }
