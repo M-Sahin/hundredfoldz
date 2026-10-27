@@ -8,6 +8,7 @@ import { cloudDecks, useAccount } from "../lib/client/account";
 import type { Deck } from "../lib/shared/types";
 import { modelInfo } from "../lib/shared/models";
 import { deckSeeds } from "../lib/shared/deck-utils";
+import { encodeDeck } from "../lib/shared/share";
 import { IdentityPips } from "./CardFace";
 import { LoginDialog } from "./LoginDialog";
 import { Menu } from "./Menu";
@@ -272,7 +273,12 @@ function DeckCardItem({ deck: d, onChange, onError }: { deck: SavedDeck; onChang
     try {
       const p = await payload();
       const r = await resolveDeck(p);
-      setSharing({ deck: r.deck, d: p });
+      // renamed here: share it under its new name (the stored payload still has the old one)
+      if (r.deck.name === d.name) setSharing({ deck: r.deck, d: p });
+      else {
+        const deck = { ...r.deck, name: d.name };
+        setSharing({ deck, d: await encodeDeck(deck) });
+      }
     } catch (e) {
       onError((e as Error).message);
     } finally {

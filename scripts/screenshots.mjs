@@ -519,6 +519,28 @@ await run("36-save-ask", { width: 1440, height: 1000 }, async (p) => {
   if (ask !== "Save to my account" || title !== "Save your deck" || !intent) errors.push(`save button: ${ask} / ${title} / ${intent}`);
 });
 // My decks, logged out: the decks in this browser, each with its actions; Open goes to the deck
+// rename a deck in My decks, open it (the new name shows), then reload: the deck is still there
+await run("36-rename-and-reload", { width: 1440, height: 1000 }, async (p) => {
+  await toResult(p);
+  await saveDeck(p);
+  await p.goto(`${base}/decks`, { waitUntil: "networkidle" });
+  await p.waitForSelector("[data-testid=deck-card]", { timeout: 8000 });
+  await p.click("[data-testid=deck-more]");
+  await p.click(".menu-list >> text=Rename");
+  await p.fill(".deckcard-rename input", "Renamed for the test");
+  await p.click(".deckcard-rename button[type=submit]");
+  await p.click("[data-testid=deck-card] .deckcard-art");
+  await p.waitForSelector(".deck h2", { timeout: 30000 });
+  const opened = await p.locator(".deck h2").first().innerText();
+  const url = new URL(p.url());
+  await p.reload({ waitUntil: "networkidle" });
+  const after = await p.locator(".deck h2").first().innerText({ timeout: 15000 }).catch(() => "(no deck after reload)");
+  const saved = await p.locator("[data-testid=saved-state]").innerText({ timeout: 5000 }).catch(() => "");
+  console.log(`rename and reload: opened as "${opened}" at ${url.pathname}${url.search}; after reload "${after}", "${saved.replace(/\n/g, " ")}"`);
+  if (opened !== "Renamed for the test") errors.push(`a renamed deck opened under its old name: "${opened}"`);
+  if (after !== "Renamed for the test") errors.push(`reloading an open deck lost it: "${after}"`);
+  if (!/Saved/.test(saved)) errors.push(`after a reload the saved deck isn't marked saved: "${saved}"`);
+});
 await run("37-decks-page", { width: 1440, height: 1000 }, async (p) => {
   await toResult(p);
   await saveDeck(p); // saving is a choice now: put it in My decks first
@@ -540,7 +562,8 @@ await run("37-decks-page", { width: 1440, height: 1000 }, async (p) => {
   const html = await (await fetch(`${base}/?opening=open&name=${encodeURIComponent("Meren's Endless Harvest")}`)).text();
   console.log(`open from My decks: first saw ${seen ?? "nothing"}; server renders the opening screen: ${/Opening <!-- -->?<strong>Meren&#x27;s Endless Harvest|Opening.*Meren/.test(html)}; url now ${new URL(p.url()).pathname + new URL(p.url()).search}`);
   if (!/data-testid="opening"/.test(html)) errors.push("the server doesn't render the opening screen");
-  if (new URL(p.url()).search) errors.push(`the address still has ${new URL(p.url()).search}`);
+  // the one-time "opening" address is gone; an open deck's address says so (for a reload)
+  if (/opening=/.test(new URL(p.url()).search)) errors.push(`the address still has ${new URL(p.url()).search}`);
 });
 await run("38-mobile-decks", { width: 390, height: 844 }, async (p) => {
   await toResult(p);

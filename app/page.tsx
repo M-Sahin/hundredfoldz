@@ -7,7 +7,7 @@ import { faq, HOME_TITLE, SITE_DESCRIPTION, SITE_NAME, publicOrigin } from "../l
 export const metadata: Metadata = {
   title: HOME_TITLE,
   description: SITE_DESCRIPTION,
-  // ?opening=… (from My decks) is the same page
+  // ?opening=… (from My decks) and ?view=deck (a deck on screen) are the same page
   alternates: { canonical: "/" },
 };
 
@@ -15,7 +15,9 @@ export const metadata: Metadata = {
 // too, so a slow phone doesn't show the setup page while the deck loads.
 export default async function Page({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const q = await searchParams;
-  const kind = typeof q.opening === "string" && ["open", "rebuild", "upgrade"].includes(q.opening) ? (q.opening as "open" | "rebuild" | "upgrade") : null;
+  // /?view=deck&name=…: the address while a deck is on screen; a reload shows "Opening …" until
+  // the browser puts the deck back from this tab's storage
+  const kind = typeof q.opening === "string" && ["open", "rebuild", "upgrade"].includes(q.opening) ? (q.opening as "open" | "rebuild" | "upgrade") : q.view === "deck" ? "open" : null;
   const name = typeof q.name === "string" ? q.name.slice(0, 120) : "your deck";
   const o = await publicOrigin();
   return (

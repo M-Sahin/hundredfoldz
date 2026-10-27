@@ -40,6 +40,30 @@ interface Result {
 }
 
 const lastDeck = storage<Result>("hundredfold:last-deck");
+
+/** The deck on screen, per tab: a reload shows it again instead of the setup page. */
+type Showing = { r: Result; save: "unsaved" | "account" | "browser"; local: SavedDeck | null };
+const SHOWING = "hundredfold:showing";
+const showing = {
+  get(): Showing | null {
+    try {
+      const v = JSON.parse(sessionStorage.getItem(SHOWING) ?? "null") as Showing | null;
+      return v?.r?.deck?.commander ? v : null;
+    } catch {
+      return null;
+    }
+  },
+  set(v: Showing | null) {
+    try {
+      if (v) sessionStorage.setItem(SHOWING, JSON.stringify(v));
+      else sessionStorage.removeItem(SHOWING);
+    } catch {
+      /* full or blocked: a reload just goes back to the setup page */
+    }
+  },
+};
+/** The address while a deck is on screen: a reload renders "Opening <name>" on the server, not the setup page. */
+const deckUrl = (name: string) => `/?view=deck&name=${encodeURIComponent(name.slice(0, 120))}`;
 const savedCode = storage<string>("hundredfold:access-code");
 
 const BUDGETS: [Budget, string][] = [
@@ -462,9 +486,20 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
   const handed = useRef<{ h: Handoff; deck: ReturnType<typeof resolveDeck> } | null>(null);
   useLayoutEffect(() => {
     // the address only says "opening"; the deck itself came through this tab's storage
-    if (window.location.search.includes("opening=")) window.history.replaceState(null, "", "/");
+    const reloaded = new URLSearchParams(window.location.search).get("view") === "deck";
+    if (window.location.search.includes("opening=") || reloaded) window.history.replaceState(null, "", "/");
     const h = handoff.take();
-    if (!h) return setOpening(null);
+    if (!h) {
+      // a reload while a deck was open: show it again, as it was
+      const s = reloaded ? showing.get() : null;
+      if (s) {
+        setResult(s.r);
+        setLocalSave(s.local);
+        setSaveState(s.save);
+        setPhase("result");
+      } else showing.set(null);
+      return setOpening(null);
+    }
     const deck = resolveDeck(h.d);
     deck.catch(() => {}); // handled below
     handed.current = { h, deck };
@@ -472,7 +507,9 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
     if (h.kind !== "open") return;
     void (async () => {
       try {
-        await showSaved({ ...(await deck), usage: h.usage, model: h.model });
+        const r = await deck;
+        // renamed in My decks: the new name lives with the saved deck, not inside its payload
+        await showSaved({ ...r, deck: h.name ? { ...r.deck, name: h.name } : r.deck, usage: h.usage, model: h.model });
       } catch (e) {
         setError(`Couldn't open the deck: ${(e as Error).message}`);
       } finally {
@@ -513,6 +550,20 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config]);
+
+  // remember the deck on screen for a reload (and say so in the address); leaving it forgets it
+  useEffect(() => {
+    if (opening) return;
+    if (phase === "result" && result) {
+      const save = saveState === "account" || saveState === "browser" ? saveState : "unsaved";
+      showing.set({ r: result, save, local: localSave });
+      const want = deckUrl(result.deck.name);
+      if (window.location.pathname + window.location.search !== want) window.history.replaceState(null, "", want);
+    } else if (phase !== "result") {
+      showing.set(null);
+      if (new URLSearchParams(window.location.search).get("view") === "deck") window.history.replaceState(null, "", "/");
+    }
+  }, [phase, result, saveState, localSave, opening]);
 
   const restart = () => {
     setPhase("setup");
