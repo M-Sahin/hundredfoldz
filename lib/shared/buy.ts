@@ -47,9 +47,12 @@ export interface BuyLink {
   tagged: boolean;
 }
 
-export function buyDeckLinks(deck: Deck, aff: Affiliates = {}): BuyLink[] {
+/** Dollar visitors see the US shops first. */
+const order = (links: BuyLink[], currency: "EUR" | "USD") => (currency === "USD" ? [...links.slice(1), links[0]] : links);
+
+export function buyDeckLinks(deck: Deck, aff: Affiliates = {}, currency: "EUR" | "USD" = "EUR"): BuyLink[] {
   const lines = cartLines(deck);
-  return [
+  return order([
     {
       shop: "cardmarket",
       label: "Cardmarket",
@@ -60,17 +63,17 @@ export function buyDeckLinks(deck: Deck, aff: Affiliates = {}): BuyLink[] {
     },
     { shop: "tcgplayer", label: "TCGplayer", region: "US", href: tagLink(`https://www.tcgplayer.com/massentry?productline=Magic&c=${enc(lines.join("||"))}`, aff.tcgplayer), tagged: !!aff.tcgplayer },
     { shop: "cardkingdom", label: "Card Kingdom", region: "US", href: tagLink(`https://www.cardkingdom.com/builder?c=${enc(lines.join("\n"))}`, aff.cardkingdom), tagged: !!aff.cardkingdom },
-  ];
+  ], currency);
 }
 
 /** Search links for a sealed box at each shop, e.g. "Duskmourn: House of Horror Play Booster Box". */
-export function buyBoxLinks(boxName: string, aff: Affiliates = {}): BuyLink[] {
+export function buyBoxLinks(boxName: string, aff: Affiliates = {}, currency: "EUR" | "USD" = "EUR"): BuyLink[] {
   const q = enc(boxName);
-  return [
+  return order([
     { shop: "cardmarket", label: "Cardmarket", region: "Europe", href: tagLink(`https://www.cardmarket.com/en/Magic/Products/Search?searchString=${q}`, aff.cardmarket), tagged: !!aff.cardmarket },
     { shop: "tcgplayer", label: "TCGplayer", region: "US", href: tagLink(`https://www.tcgplayer.com/search/magic/product?productLineName=magic&q=${q}`, aff.tcgplayer), tagged: !!aff.tcgplayer },
     { shop: "cardkingdom", label: "Card Kingdom", region: "US", href: tagLink(`https://www.cardkingdom.com/catalog/search?search=header&filter%5Bname%5D=${q}`, aff.cardkingdom), tagged: !!aff.cardkingdom },
-  ];
+  ], currency);
 }
 
 export const AFFILIATE_NOTE = "Some of these are affiliate links: if you buy, Hundredfoldz may earn a small commission at no extra cost to you. It doesn't change what we suggest.";

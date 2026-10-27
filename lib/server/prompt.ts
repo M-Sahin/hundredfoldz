@@ -6,6 +6,7 @@ import type { Budget, CardInfo, GenerateRequest } from "../shared/types";
 import { SKILL_FILES, SKILL_VERSION } from "../skill/content";
 import type { EngineOptions } from "./engine";
 import { pairingLabel, pairingProblem } from "./validate";
+import { BUDGETS, symbol, type Currency } from "../shared/currency";
 
 /** Pull "## N. Title" sections out of a reference file. */
 export function sections(md: string, numbers: number[]): string {
@@ -119,11 +120,16 @@ export function systemPrompt(engine?: EngineOptions, bracket?: number): string {
   return `${skillContext()}\n${adapter}`.trim();
 }
 
-const BUDGET_TEXT: Record<Budget, string> = {
-  any: "No budget limit — but don't add expensive cards that don't improve the deck.",
-  mid: "Mid budget: aim for roughly €150–250 total (Scryfall EUR prices). Avoid cards over ~€20 unless they're seeds.",
-  budget: "Budget: aim for under ~€75 total (Scryfall EUR prices). Avoid cards over ~€3 unless they're seeds; basics are free.",
-};
+/** The budget in the build's currency: euros (Cardmarket, Scryfall's eur) or dollars (TCGplayer, usd). */
+function budgetText(b: Budget, c: Currency = "EUR"): string {
+  if (b === "any") return "No budget limit — but don't add expensive cards that don't improve the deck.";
+  const x = BUDGETS[c][b];
+  const s = symbol(c);
+  const src = c === "USD" ? "Scryfall USD prices (TCGplayer)" : "Scryfall EUR prices (Cardmarket)";
+  return b === "mid"
+    ? `Mid budget: aim for roughly ${s}${x.lo}–${x.hi} total (${src}; the card lists show these prices). Avoid cards over ~${s}${x.perCard} unless they're seeds.`
+    : `Budget: aim for under ~${s}${x.hi} total (${src}; the card lists show these prices). Avoid cards over ~${s}${x.perCard} unless they're seeds; basics are free.`;
+}
 
 export function userPrompt(req: GenerateRequest, seeds: CardInfo[]): string {
   if (req.mode === "complete") return completePrompt(req, seeds);
@@ -145,7 +151,7 @@ export function userPrompt(req: GenerateRequest, seeds: CardInfo[]): string {
     pairs.length
       ? `These seeds can be co-commanders (both in the command zone; their combined color identity counts): ${pairs.join("; ")}. ${req.commander ? `If ${req.commander} is one of them, use the pair: put ${req.commander} in "commander" and its partner in "partner".` : "Prefer the pair when it fits the seeds."}`
       : "",
-    `Budget: ${BUDGET_TEXT[req.budget]}`,
+    `Budget: ${budgetText(req.budget, req.currency)}`,
     req.theme?.trim() ? `Theme / wishes from the user: ${req.theme.trim().slice(0, 300)}` : "",
     shapeText(req.shape),
     req.collection?.names.length ? collectionText(req.collection) : "",
@@ -163,7 +169,7 @@ export const TOOLS = [
       type: "object",
       properties: {
         query: { type: "string", description: "Scryfall query. Always include f:commander and an id<= color filter." },
-        order: { type: "string", enum: ["edhrec", "cmc", "eur", "name", "released"], description: "Sort order (default edhrec = most popular in Commander)" },
+        order: { type: "string", enum: ["edhrec", "cmc", "eur", "usd", "name", "released"], description: "Sort order (default edhrec = most popular in Commander)" },
         limit: { type: "integer", minimum: 5, maximum: 40, description: "Max results (default 20)" },
       },
       required: ["query"],
@@ -267,7 +273,7 @@ export function upgradePrompt(req: GenerateRequest, deckList: string[], report: 
     "Independent analysis from the server:",
     report,
     "",
-    `Budget for the cards you add: ${BUDGET_TEXT[req.budget]}`,
+    `Budget for the cards you add: ${budgetText(req.budget, req.currency)}`,
     req.theme?.trim() ? `Wishes from the user: ${req.theme.trim().slice(0, 300)}` : "",
     shapeText(req.shape),
     req.collection?.names.length ? collectionText(req.collection) : "",
@@ -300,7 +306,7 @@ function completePrompt(req: GenerateRequest, cards: CardInfo[]): string {
     ...own.map((c) => `- ${c.name} — ${c.manaCost || "(no cost)"} — ${c.typeLine}`),
     ...(basics.length ? [`Basic lands already in the deck: ${basics.map(([n, q]) => `${q} ${n}`).join(", ")} (you may add more basics).`] : []),
     "",
-    `Budget: ${BUDGET_TEXT[req.budget]}`,
+    `Budget: ${budgetText(req.budget, req.currency)}`,
     req.theme?.trim() ? `Wishes from the user: ${req.theme.trim().slice(0, 300)}` : "",
     shapeText(req.shape),
     req.collection?.names.length ? collectionText(req.collection) : "",

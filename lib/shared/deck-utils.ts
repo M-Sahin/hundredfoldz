@@ -1,6 +1,7 @@
 // Pure helpers for deck stats and export (used by the UI and tests).
 import type { Color, Deck, DeckCard, Role } from "./types";
 import { ROLES, isBasicLand } from "./types";
+import { cardPrice, type Currency } from "./currency";
 
 export const ROLE_COLORS: Record<Role, string> = {
   ramp: "#49b57a",
@@ -90,16 +91,17 @@ export function pips(deck: Deck): Record<Color, number> {
   return out;
 }
 
-export function price(deck: Deck): { eur: number; missing: number } {
-  let eur = 0;
+/** What the deck costs in euros (Cardmarket) or dollars (TCGplayer), basics left out. */
+export function price(deck: Deck, currency: Currency = "EUR"): { total: number; missing: number } {
+  let total = 0;
   let missing = 0;
   for (const c of [deck.commander, ...(deck.partner ? [deck.partner] : []), ...deck.cards]) {
     if (isBasicLand(c.name)) continue;
-    const p = c.info?.priceEur ?? null;
+    const p = cardPrice(c.info, currency);
     if (p == null) missing++;
-    else eur += p * c.qty;
+    else total += p * c.qty;
   }
-  return { eur, missing };
+  return { total, missing };
 }
 
 /** Moxfield / Archidekt / Arena-compatible text. */

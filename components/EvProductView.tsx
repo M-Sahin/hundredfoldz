@@ -8,6 +8,7 @@ import { SiteFooter } from "./SiteFooter";
 import { BuyLinks } from "./BuyLinks";
 import { buyBoxLinks } from "../lib/shared/buy";
 import { useSiteConfig } from "../lib/client/site-config";
+import { useCurrency } from "../lib/client/currency";
 
 const eur = (x: number) => `€${Math.abs(x) >= 1000 ? Math.round(x).toLocaleString("en") : x.toFixed(2)}`;
 const pct = (x: number) => `${Math.round(x * 100)}%`;
@@ -28,6 +29,7 @@ function NumberField({ label, value, onChange, step = 1, min = 0, suffix, hint, 
 
 export default function EvProductView({ product, error }: { product: EvProduct | null; error: string | null }) {
   const site = useSiteConfig();
+  const cur = useCurrency();
   const [price, setPrice] = useState("");
   const [packs, setPacks] = useState(String(product?.packsPerBox ?? 36));
   const [fee, setFee] = useState(String(DEFAULT_SELL.fee * 100));
@@ -113,7 +115,7 @@ export default function EvProductView({ product, error }: { product: EvProduct |
             <NumberField label="Packs in the box" value={packs} onChange={setPacks} hint={`A ${KIND_LABEL[product.kind]} box usually has ${product.packsPerBox}.`} />
             <div className="ev-buy">
               <span className="opt-label">Find this box</span>
-              <BuyLinks links={buyBoxLinks(`${product.setName} ${KIND_LABEL[product.kind]} Box`, site?.affiliates)} />
+              <BuyLinks links={buyBoxLinks(`${product.setName} ${KIND_LABEL[product.kind]} Box`, site?.affiliates, cur)} />
             </div>
             <details className="ev-more">
               <summary>Selling costs</summary>

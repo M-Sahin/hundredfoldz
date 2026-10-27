@@ -7,6 +7,7 @@ import { freeConfig } from "./free-builds";
 import { vaultOn } from "./key-vault";
 import { supabaseConfig } from "./supabase";
 import { modelInfo } from "../shared/models";
+import { currencyForCountry, isCurrency, type Currency } from "../shared/currency";
 
 function engineFromEnv(demo: boolean): EngineOptions {
   if (demo) return parseEngine("v1"); // the scripted demo follows the original flow
@@ -63,9 +64,19 @@ export interface PublicConfig {
   accessCodeRequired: boolean;
   setupProblem: string | null;
   demoSeeds: string[];
+  /** Prices for this visitor: euros in Europe, dollars elsewhere (from the host's country header). */
+  currency: Currency;
 }
 
-export function publicConfig(): PublicConfig {
+/** The visitor's currency from the host's country header (Vercel, Cloudflare), or DEFAULT_CURRENCY, or euros. */
+export function visitorCurrency(request?: Request): Currency {
+  const h = request?.headers;
+  const fromCountry = currencyForCountry(h?.get("x-vercel-ip-country") ?? h?.get("cf-ipcountry"));
+  const fallback = (process.env.DEFAULT_CURRENCY ?? "").trim().toUpperCase();
+  return fromCountry ?? (isCurrency(fallback) ? fallback : "EUR");
+}
+
+export function publicConfig(request?: Request): PublicConfig {
   const c = serverConfig();
   return {
     mode: c.demo ? "demo" : "live",
@@ -80,5 +91,6 @@ export function publicConfig(): PublicConfig {
     accessCodeRequired: Boolean(c.accessCode) && !c.demo && !c.free,
     setupProblem: !c.demo && !c.free && !c.accessCode && !c.publicAccess ? "This deployment has an API key but no ACCESS_CODE. Set ACCESS_CODE (or PUBLIC_ACCESS=1 to allow anyone) in the Vercel project settings." : null,
     demoSeeds: DEMO_SEEDS,
+    currency: visitorCurrency(request),
   };
 }

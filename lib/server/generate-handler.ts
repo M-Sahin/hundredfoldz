@@ -65,7 +65,8 @@ export function parseRequest(body: any): GenerateRequest | string {
   }
   const shape = cleanShape(body.shape);
   if (typeof shape === "string") return shape;
-  return { seeds, commander, budget, theme, bracket, ...extra, ...(collection ? { collection } : {}), ...(shape ? { shape } : {}) };
+  const currency = body.currency === "USD" ? ("USD" as const) : undefined;
+  return { seeds, commander, budget, theme, bracket, ...extra, ...(collection ? { collection } : {}), ...(shape ? { shape } : {}), ...(currency ? { currency } : {}) };
 }
 
 

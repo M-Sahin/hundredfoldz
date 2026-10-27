@@ -13,6 +13,7 @@ import { shapeCounts, shapeProblems } from "../shared/shape";
 import { bracketInfo } from "../shared/bracket";
 import type { CardInfo, Deck, GenerateRequest, Role, StreamEvent, Swap, Usage, Validation } from "../shared/types";
 import { ROLES, isBasicLand, nameKey } from "../shared/types";
+import { cardPrice, money, type Currency } from "../shared/currency";
 
 export interface AgentOptions {
   model: string;
@@ -45,13 +46,16 @@ function excerpt(t: string, n = 140) {
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
 }
 
-function cardLine(c: CardInfo, text: "none" | "excerpt" | "full" = "excerpt", owned?: Set<string>) {
+function cardLine(c: CardInfo, text: "none" | "excerpt" | "full" = "excerpt", owned?: Set<string>, cur: Currency = "EUR") {
+  // the build's currency first (that's what its budget is in), the other one when it has no price
+  const mine = cardPrice(c, cur);
+  const other = cardPrice(c, cur === "EUR" ? "USD" : "EUR");
   const bits = [
     c.name,
     c.manaCost || "—",
     c.typeLine,
     `id:${c.colorIdentity.join("") || "C"}`,
-    c.priceEur != null ? `€${c.priceEur.toFixed(2)}` : c.priceUsd != null ? `$${c.priceUsd.toFixed(2)}` : "no price",
+    mine != null ? money(mine, cur, true) : other != null ? money(other, cur === "EUR" ? "USD" : "EUR", true) : "no price",
   ];
   if (c.gameChanger) bits.push("GAME CHANGER");
   if (c.legalCommander !== "legal") bits.push(`commander:${c.legalCommander}`);
@@ -214,7 +218,7 @@ async function checkSubmission(sub: SubmittedDeck, attempt: number, req: Generat
       validation = validateDeck(deck, notFound, seedNames, opts);
     }
   }
-  const analysis = analyzeDeck(deck, { budget: req.budget, seeds: seedNames });
+  const analysis = analyzeDeck(deck, { budget: req.budget, seeds: seedNames, currency: req.currency });
   const problems: string[] = [];
   if (req.collection?.mode === "only" && req.collection.names.length) {
     const own = new Set(req.collection.names.map(nameKey));
@@ -334,7 +338,7 @@ export async function runAgent(req: GenerateRequest, opts: AgentOptions): Promis
     reviewBase = start;
     lastDeck = { ...finish(start, "No changes suggested."), swaps: [] };
     emit({ type: "status", text: "Claude is looking for upgrades" });
-    messages.push({ role: "user", content: upgradePrompt(req, upgradeList(start.deck), upgradeReport(start)) });
+    messages.push({ role: "user", content: upgradePrompt(req, upgradeList(start.deck, req.currency), upgradeReport(start)) });
   } else {
     messages.push({ role: "user", content: userPrompt(req, seeds) });
     emit({ type: "status", text: "Claude is reading the seeds" });
@@ -439,7 +443,7 @@ export async function runAgent(req: GenerateRequest, opts: AgentOptions): Promis
           results.set(x.id, { type: "tool_result", tool_use_id: x.id, is_error: true, content: `Skipped: at most ${MAX_PARALLEL_TOOLS} lookups per turn.` });
           return;
         }
-        results.set(x.id, await runLookup(x, emit, engine, owned));
+        results.set(x.id, await runLookup(x, emit, engine, owned, req.currency));
       }),
     );
 
@@ -582,10 +586,10 @@ async function upgradeStart(req: GenerateRequest, cards: CardInfo[], engine: Eng
 }
 
 /** The deck as the model sees it in upgrade mode: one line per card with its Oracle text. */
-function upgradeList(deck: Deck): string[] {
+function upgradeList(deck: Deck, cur: Currency = "EUR"): string[] {
   const basics = deck.cards.filter((c) => isBasicLand(c.name));
   return [
-    ...deck.cards.filter((c) => !isBasicLand(c.name)).map((c) => `- ${c.info ? cardLine(c.info, "excerpt") : c.name}`),
+    ...deck.cards.filter((c) => !isBasicLand(c.name)).map((c) => `- ${c.info ? cardLine(c.info, "excerpt", undefined, cur) : c.name}`),
     basics.length ? `- Basic lands: ${basics.map((c) => `${c.qty} ${c.name}`).join(", ")}` : "",
   ].filter(Boolean);
 }
@@ -624,12 +628,12 @@ function asBlocks(c: any): any[] {
   return typeof c === "string" ? [{ type: "text", text: c }] : c;
 }
 
-async function runLookup(u: ContentBlock & { type: "tool_use" }, emit: (e: StreamEvent) => void, engine: EngineOptions, owned?: Set<string>) {
+async function runLookup(u: ContentBlock & { type: "tool_use" }, emit: (e: StreamEvent) => void, engine: EngineOptions, owned?: Set<string>, cur: Currency = "EUR") {
   try {
     if (u.name === "search_cards") {
       const r = await scry.search(String(u.input.query ?? ""), u.input.order ?? "edhrec", Math.min(Number(u.input.limit ?? 20) || 20, 40));
       emit({ type: "tool_result", id: u.id, summary: r.error ? "0 results" : `${r.total} matches`, ok: !r.error });
-      const body = r.error ? `No results: ${r.error}` : `${r.total} total matches; showing ${r.cards.length}:\n${r.cards.map((c) => cardLine(c, engine.fullText ? "full" : "excerpt", owned)).join("\n")}`;
+      const body = r.error ? `No results: ${r.error}` : `${r.total} total matches; showing ${r.cards.length}:\n${r.cards.map((c) => cardLine(c, engine.fullText ? "full" : "excerpt", owned, cur)).join("\n")}`;
       return { type: "tool_result", tool_use_id: u.id, content: body };
     }
     if (u.name === "get_cards") {
@@ -637,7 +641,7 @@ async function runLookup(u: ContentBlock & { type: "tool_use" }, emit: (e: Strea
       const { found, notFound } = await scry.getCollection(names);
       const cards = [...new Map([...found.values()].map((c) => [c.name, c])).values()];
       emit({ type: "tool_result", id: u.id, summary: `${cards.length} cards${notFound.length ? `, ${notFound.length} not found` : ""}`, ok: !notFound.length });
-      const body = cards.map((c) => `${cardLine(c, "none", owned)}\n  ${c.oracleText.replace(/\n/g, "\n  ")}`).join("\n") + (notFound.length ? `\nNOT FOUND: ${notFound.join("; ")}` : "");
+      const body = cards.map((c) => `${cardLine(c, "none", owned, cur)}\n  ${c.oracleText.replace(/\n/g, "\n  ")}`).join("\n") + (notFound.length ? `\nNOT FOUND: ${notFound.join("; ")}` : "");
       return { type: "tool_result", tool_use_id: u.id, content: body || "No cards." };
     }
     emit({ type: "tool_result", id: u.id, summary: "unknown tool", ok: false });

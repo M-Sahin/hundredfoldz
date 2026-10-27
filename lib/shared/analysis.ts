@@ -5,6 +5,7 @@
 import { COMMANDER_TEMPLATE } from "./bracket";
 import type { Budget, CardInfo, Color, Deck, DeckCard } from "./types";
 import { isBasicLand } from "./types";
+import { budgetCap, cardPrice, money, type Currency } from "./currency";
 
 export const FUNCTIONS = ["ramp", "draw", "removal", "wipe", "protection", "recursion", "tutor"] as const;
 export type Fn = (typeof FUNCTIONS)[number];
@@ -199,6 +200,10 @@ export interface DeckAnalysis {
   stapleShare: number; // staples / nonland non-seed cards
   priceEur: number;
   budgetCapEur: number | null;
+  /** The price in the build's currency (euros or dollars), and that currency's budget. */
+  price: number;
+  currency: Currency;
+  budgetCap: number | null;
   /** Cards Claude tagged with a function that the Oracle text doesn't show. */
   unverifiedTags: { name: string; role: string }[];
   byCard: Record<string, Fn[]>;
@@ -207,7 +212,9 @@ export interface DeckAnalysis {
 export const BUDGET_CAP: Record<Budget, number | null> = { any: null, mid: 250, budget: 75 };
 export const STAPLE_RANK = 300; // EDHREC rank at or below this = a generic staple
 
-export function analyzeDeck(deck: Deck, opts: { budget?: Budget; seeds?: string[] } = {}): DeckAnalysis {
+export function analyzeDeck(deck: Deck, opts: { budget?: Budget; seeds?: string[]; currency?: Currency } = {}): DeckAnalysis {
+  const currency = opts.currency ?? "EUR";
+  let local = 0;
   const seeds = new Set((opts.seeds ?? []).map((s) => s.toLowerCase()));
   const commanders = [deck.commander, ...(deck.partner ? [deck.partner] : [])];
   const nine = deck.cards;
@@ -236,6 +243,7 @@ export function analyzeDeck(deck: Deck, opts: { budget?: Budget; seeds?: string[
     const i = c.info;
     const q = qtyOf(c);
     if (i?.priceEur != null) price += i.priceEur * q;
+    local += (cardPrice(i, currency) ?? 0) * q;
     if (!i) {
       if (isBasicLand(c.name)) lands += q;
       continue;
@@ -259,7 +267,10 @@ export function analyzeDeck(deck: Deck, opts: { budget?: Budget; seeds?: string[
       if (i.edhrecRank != null && i.edhrecRank <= STAPLE_RANK) staples.push(i.name);
     }
   }
-  for (const c of commanders) if (c.info?.priceEur != null) price += c.info.priceEur;
+  for (const c of commanders) {
+    if (c.info?.priceEur != null) price += c.info.priceEur;
+    local += cardPrice(c.info, currency) ?? 0;
+  }
 
   // colored sources vs demand
   const colors: ColorReport[] = [];
@@ -319,6 +330,9 @@ export function analyzeDeck(deck: Deck, opts: { budget?: Budget; seeds?: string[
     stapleShare: nonlandOthers ? Math.round((staples.length / nonlandOthers) * 100) / 100 : 0,
     priceEur: Math.round(price * 100) / 100,
     budgetCapEur: BUDGET_CAP[opts.budget ?? "any"],
+    price: Math.round(local * 100) / 100,
+    currency,
+    budgetCap: budgetCap(opts.budget ?? "any", currency),
     unverifiedTags,
     byCard,
   };
@@ -337,7 +351,7 @@ export function analysisReport(a: DeckAnalysis): string {
     `Curve (nonland, MV 0–7+): ${a.curve.join(" / ")}; average MV ${a.avgMv}. ${a.tappedLands} lands always enter tapped.`,
     `Colored sources (lands): ${a.colors.map((c) => `${c.color} ${c.sources}${c.target ? `/${c.target} wanted for ${c.hardest}` : ""}`).join(", ") || "colorless deck"}.`,
     `Generic staples (top-${STAPLE_RANK} EDHREC rank, not seeds): ${a.staples.length} of the nonland cards (${Math.round(a.stapleShare * 100)}%).`,
-    `Price: about €${a.priceEur.toFixed(0)}${a.budgetCapEur ? ` (budget €${a.budgetCapEur})` : ""}.`,
+    `Price: about ${money(a.price ?? a.priceEur, a.currency ?? "EUR")}${a.budgetCap ? ` (budget ${money(a.budgetCap, a.currency ?? "EUR")})` : ""}.`,
   ];
   if (a.unverifiedTags.length) out.push(`Tags the card text doesn't support: ${a.unverifiedTags.slice(0, 15).map((u) => `${u.name} (${u.role})`).join(", ")}.`);
   return out.join("\n");

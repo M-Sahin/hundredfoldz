@@ -11,12 +11,13 @@ Everything Hundredfoldz does, in detail. Back to the [README](../README.md).
 - **The deck:**
   - a commander banner, strategy and win conditions, and the Bracket 3 checklist
   - cards grouped by role, with images and a click-through detail view that explains why each card is in the deck
-  - a type list, a mana curve, counts against the Commander template, color demand and a price in EUR
+  - a type list, a mana curve, counts against the Commander template, color demand and a price
   - opening hands: thousands of goldfished games show how often you keep your first 7, hit your third and fourth land on time, have each color by turn 3 and cast the commander on time (see [Opening-hand check](#opening-hand-check))
   - a sample-hand drawer
   - copy for Moxfield/Archidekt or Arena, and a .txt download
 - **Own key:** visitors build with their own Claude API key and model, and see the tokens and estimated cost of each build. The key field works with password managers.
 - **Your collection:** prefer cards you own, or build only from them.
+- **Euros or dollars:** visitors in Europe see Cardmarket prices in euros, everyone else TCGplayer prices in dollars (from the country the host reports: Vercel's `x-vercel-ip-country`, or Cloudflare's `cf-ipcountry`). A switch next to the budget and under the deck's price changes it, and the choice is kept in the browser. The budget options and Claude's budget follow the same currency (dollar budgets are a little higher, because TCGplayer prices run above Cardmarket's), and US shops come first in the buy links. Box EV stays in euros: its data is Cardmarket's.
 - **Bracket checker:** paste or upload any decklist at `/bracket` to see which bracket it fits and why, with the opening-hand numbers.
 - **Box EV:** what every booster box since 2020 is worth on average at `/ev`, after selling costs, with your chance to get your price back (see [Box EV](#box-ev)). The deck view adds "Singles or boxes?": which boxes could give you the deck's cards, and what those cards cost as singles.
 - **Buy the cards:** every deck can open TCGplayer or Card Kingdom with the whole list in the cart, or copy it for a Cardmarket wants list. Clicking a card shows its price at Cardmarket, TCGplayer and Card Kingdom (cheapest printing), each with a buy link. Box EV pages link to each shop's search for the box. Affiliate tags are optional settings (see the environment variables); tagged links are marked `sponsored` and the page says so.

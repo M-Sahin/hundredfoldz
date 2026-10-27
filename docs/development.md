@@ -120,5 +120,5 @@ In GitHub, add the repository secret `ANTHROPIC_API_KEY` (preferably from a Cons
 
 - Bracket 3 rules for the builder were checked on 2026-10-24 against Wizards' Commander format page and the Commander Brackets updates of October 2025 and February 2026. They're in `lib/shared/bracket.ts`. The bracket checker's rules for all brackets were checked on 2026-10-25 and are in `lib/server/bracket-check.ts`. Update both when Wizards changes the brackets.
 - Model prices for the cost estimate were checked on 2026-10-25 and are in `lib/shared/models.ts`.
-- Prices are Scryfall's Cardmarket (EUR) trend prices and change daily.
+- Prices are Scryfall's Cardmarket trend prices (EUR) or TCGplayer market prices (USD), depending on the visitor, and change daily. Box EV uses the euro prices only.
 - Hundredfoldz is unofficial Fan Content permitted under the [Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy). Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC. Card data and images come from [Scryfall](https://scryfall.com) and follow its [API rules](https://scryfall.com/docs/api): it's free to use, with no paywall, and artists are credited.

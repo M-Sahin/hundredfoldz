@@ -115,6 +115,8 @@ export interface GenerateRequest {
   collection?: { names: string[]; mode: "prefer" | "only" };
   /** Optional limits: creatures, lands, ramp, draw, removal, wipes, average mana value. */
   shape?: DeckShape;
+  /** The prices the budget is in: euros (Cardmarket, default) or dollars (TCGplayer). */
+  currency?: "EUR" | "USD";
 }
 
 export const MAX_COLLECTION = 5000;

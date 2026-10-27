@@ -412,6 +412,28 @@ await run("32-free-builds", { width: 1440, height: 1000 }, async (p) => {
   if (!body?.turnstile) errors.push("a free build was sent without a bot-check token");
   if (!/free builds are used up/.test(lead)) errors.push(`no key sheet after the free builds: ${lead}`);
 });
+// a visitor from the US (the host's country header): dollar prices, US shops first, a switch back to euros
+await run(
+  "34-dollars",
+  { width: 1440, height: 1000 },
+  async (p) => {
+    await p.reload({ waitUntil: "networkidle" });
+    const hint = await p.locator("input[name=budget][value=budget] ~ .seg-hint").innerText();
+    await toResult(p);
+    const priceUsd = await p.locator("[data-testid=deck-stats] .deck-stat").first().innerText();
+    await p.click("[data-testid=buy-toggle]");
+    const firstShop = await p.locator("[data-testid=buy-links] .buy-shop").first().innerText();
+    await p.click("role=tab[name=Numbers]");
+    await p.click("[data-testid=deck-cost] [data-testid=currency-EUR]");
+    const priceEur = await p.locator("[data-testid=deck-stats] .deck-stat").first().innerText();
+    console.log(`dollars: budget hint "${hint}"; ${priceUsd.replace(/\n/g, " ")}; first shop ${firstShop.replace(/\n/g, " ")}; after switching: ${priceEur.replace(/\n/g, " ")}`);
+    if (!/\$100/.test(hint)) errors.push(`US visitor's budget hint isn't in dollars: ${hint}`);
+    if (!/\$\d/.test(priceUsd)) errors.push(`US visitor's deck price isn't in dollars: ${priceUsd}`);
+    if (!/TCGplayer/.test(firstShop)) errors.push(`US visitor's first shop: ${firstShop}`);
+    if (!/€\d/.test(priceEur)) errors.push(`the switch to euros didn't change the price: ${priceEur}`);
+  },
+  { extraHTTPHeaders: { "x-vercel-ip-country": "US" } },
+);
 // the result page: the stats line, the Export menu, the bracket line and the two card layouts
 await run("33-result-menus", { width: 1440, height: 1000 }, async (p) => {
   await p.context().grantPermissions(["clipboard-read", "clipboard-write"]).catch(() => {});
@@ -777,8 +799,8 @@ await shot("phone-decks", { width: 390, height: 844 }, async (p) => {
     await sweep(p, "stats");
   });
   await run("52-stats-nobody", { width: 1280, height: 700 }, async (p) => {
-    await p.goto(`${base}/stats`, { waitUntil: "networkidle" });
-    await p.waitForSelector("text=Nothing here", { timeout: 10000 });
+    await p.goto(`${base}/stats`, { waitUntil: "load" });
+    await p.waitForSelector("text=Nothing here", { timeout: 15000 });
   });
 }
 

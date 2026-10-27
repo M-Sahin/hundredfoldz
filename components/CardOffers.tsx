@@ -4,12 +4,14 @@ import { useEffect, useState } from "react";
 import { AFFILIATE_NOTE, tagLink } from "../lib/shared/buy";
 import { useSiteConfig } from "../lib/client/site-config";
 import type { Offer } from "../lib/server/card-offers";
+import { useCurrency } from "../lib/client/currency";
 
 const LABEL: Record<Offer["shop"], string> = { cardmarket: "Cardmarket", tcgplayer: "TCGplayer", cardkingdom: "Card Kingdom" };
 const money = (o: Offer) => (o.price == null ? "No price" : `${o.currency === "EUR" ? "€" : "$"}${o.price.toFixed(2)}`);
 
 export function CardOffers({ name }: { name: string }) {
   const site = useSiteConfig();
+  const cur = useCurrency();
   const [offers, setOffers] = useState<Offer[] | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -34,7 +36,7 @@ export function CardOffers({ name }: { name: string }) {
         <p className="opt-hint">Looking up prices…</p>
       ) : (
         <ul className="offers-list">
-          {offers.map((o) => (
+          {[...offers].sort((a, b) => Number(b.currency === cur) - Number(a.currency === cur)).map((o) => (
             <li key={o.shop} className="offer">
               <span className="offer-shop">{LABEL[o.shop]}</span>
               <span className="offer-price">

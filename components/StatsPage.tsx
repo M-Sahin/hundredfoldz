@@ -297,7 +297,8 @@ function Funnel({ steps }: { steps: [string, number][] }) {
     <ol className="stats-funnel">
       {steps.map(([k, v], i) => {
         const prev = i ? steps[i - 1][1] : 0;
-        const p = i ? pct(v, prev) : null;
+        // more than the step before (one key, many builds) isn't a conversion rate: leave it out
+        const p = i && v <= prev ? pct(v, prev) : null;
         return (
           <li key={k} title={`${k}: ${n(v)}`}>
             <span className="stats-bars-label">{k}</span>

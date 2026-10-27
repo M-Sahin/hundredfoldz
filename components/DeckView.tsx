@@ -17,6 +17,9 @@ import { CardFace, IdentityPips, ManaCost } from "./CardFace";
 import { ShareButton } from "./ShareSheet";
 import { Menu } from "./Menu";
 import { track } from "../lib/client/track";
+import { useCurrency } from "../lib/client/currency";
+import { PRICE_SOURCE, cardPrice, money } from "../lib/shared/currency";
+import { CurrencySwitch } from "./CurrencySwitch";
 
 type Tab = "cards" | "list" | "numbers" | "hand";
 type CardsView = "stacks" | "grid";
@@ -48,6 +51,7 @@ export function DeckView({
 }) {
   const [buying, setBuying] = useState(false);
   const site = useSiteConfig();
+  const cur = useCurrency();
   const addedSet = useMemo(() => (added?.length ? new Set(added.map((n) => n.toLowerCase())) : undefined), [added]);
   const [tab, setTab] = useState<Tab>("cards");
   // every deck opens in the grid; stacks are a choice for this deck
@@ -120,7 +124,7 @@ export function DeckView({
                 {copied === "error" ? "Your browser blocked the clipboard. Use Download instead." : "Copied. Paste it into your deckbuilder."}
               </p>
             ) : null}
-            {buying ? <BuyLinks links={buyDeckLinks(deck, site?.affiliates)} copyText={cartLines(deck).join("\n")} note={`${cartLines(deck).length} cards, basic lands left out. Each shop opens with the list filled in, so you can pick printings and see the total there.`} /> : null}
+            {buying ? <BuyLinks links={buyDeckLinks(deck, site?.affiliates, cur)} copyText={cartLines(deck).join("\n")} note={`${cartLines(deck).length} cards, basic lands left out. Each shop opens with the list filled in, so you can pick printings and see the total there.`} /> : null}
             {spend ? (
               <p className="deck-spend">
                 {spend}.
@@ -348,7 +352,8 @@ function NumbersTab({ deck, openers }: { deck: Deck; openers: OpenerReport | nul
   const roleCount = (r: string) => roles.find((g) => g.role === r)?.count ?? 0;
   const p = pips(deck);
   const pipTotal = Object.values(p).reduce((a, b) => a + b, 0) || 1;
-  const cost = price(deck);
+  const cur = useCurrency();
+  const cost = price(deck, cur);
   const avg = averageMv(deck);
   const lands = deck.cards.filter(isLand).reduce((n, c) => n + c.qty, 0);
   const rows: [string, number, readonly [number, number]][] = [
@@ -418,10 +423,11 @@ function NumbersTab({ deck, openers }: { deck: Deck; openers: OpenerReport | nul
       {openers ? <OpenersView report={openers} /> : null}
       <section className="panel" data-testid="deck-cost">
         <h3>What it costs</h3>
-        <p className="panel-big">€{cost.eur.toFixed(0)}</p>
+        <p className="panel-big">{money(cost.total, cur)}</p>
         <p className="fine">
-          Cardmarket trend prices from Scryfall, basics left out{cost.missing ? `, ${cost.missing} card${cost.missing === 1 ? "" : "s"} without a price` : ""}.
+          {PRICE_SOURCE[cur]} from Scryfall, basics left out{cost.missing ? `, ${cost.missing} card${cost.missing === 1 ? "" : "s"} without a price` : ""}.
         </p>
+        <CurrencySwitch />
         <DeckBoxesPanel deck={deck} />
       </section>
     </div>
@@ -473,12 +479,13 @@ function HandTab({ deck, onOpen }: { deck: Deck; onOpen: (c: DeckCard) => void }
 
 /** The numbers most people want, in one line under the description. */
 function DeckStats({ deck, validation, openers: r }: { deck: Deck; validation: Validation; openers: OpenerReport | null }) {
-  const cost = price(deck);
+  const cur = useCurrency();
+  const cost = price(deck, cur);
   const lands = deck.cards.filter(isLand).reduce((n, c) => n + c.qty, 0);
   const b = bracketInfo(deck.bracket ?? 3);
   const fits = bracketChecks(deck, validation).every(([ok]) => ok);
   const items: [string, string][] = [
-    ["Price", `€${cost.eur.toFixed(0)}`],
+    ["Price", money(cost.total, cur)],
     ["Lands", String(lands)],
     ["Average mana value", averageMv(deck).toFixed(2)],
     ...(r ? ([["Keeps its first 7", `${Math.round(r.keep7 * 100)}%`]] as [string, string][]) : []),
@@ -559,6 +566,8 @@ export function CardModal({ card, onClose }: { card: DeckCard; onClose: () => vo
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
   const i = card.info;
+  const cur = useCurrency();
+  const own = cardPrice(i, cur);
   return (
     <dialog ref={ref} className="modal" onClose={onClose} onClick={(e) => e.target === ref.current && onClose()} aria-label={card.name}>
       <div className="modal-inner">
@@ -574,7 +583,7 @@ export function CardModal({ card, onClose }: { card: DeckCard; onClose: () => vo
             {card.why && card.why !== "Commander" ? card.why : null}
           </p>
           <p className="modal-meta">
-            {i?.priceEur != null ? `€${i.priceEur.toFixed(2)}` : "No price"}
+            {own != null ? money(own, cur, true) : "No price"}
             {i?.gameChanger ? ", Game Changer" : ""}
             {card.seed ? ", one of your seeds" : ""}
           </p>

@@ -3802,3 +3802,54 @@ ul.verdict {
     grid-row: 2;
   }
 }
+.stats-range .chip.is-on {
+  background: var(--brass);
+  border-color: var(--brass);
+  color: var(--brass-ink);
+}
+.stats-errors code {
+  font-size: 0.85rem;
+}
+
+/* € / $ switch */
+.cur-switch {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9rem;
+}
+.cur-switch-label {
+  color: var(--muted);
+  margin-right: 2px;
+}
+.cur-switch-btn {
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+.cur-switch-btn:hover {
+  color: var(--ink);
+}
+.cur-switch-btn.is-on {
+  background: var(--felt-hi);
+  border-color: var(--brass);
+  color: var(--ink);
+}
+.opt-label--row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.opt-label--row .cur-switch {
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 400;
+}

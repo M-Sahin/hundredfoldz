@@ -22,6 +22,9 @@ import { ForgeView, type DraftCell, type LogItem } from "./ForgeView";
 import { SeedHand, seedProblem, type Seed } from "./SeedHand";
 import { useHumanCheck } from "./useHumanCheck";
 import { track } from "../lib/client/track";
+import { useCurrency } from "../lib/client/currency";
+import { budgetHint } from "../lib/shared/currency";
+import { CurrencySwitch } from "./CurrencySwitch";
 
 type Phase = "setup" | "forging" | "result";
 type Mode = "seeds" | "deck";
@@ -39,15 +42,16 @@ interface Result {
 const lastDeck = storage<Result>("hundredfold:last-deck");
 const savedCode = storage<string>("hundredfold:access-code");
 
-const BUDGETS: [Budget, string, string][] = [
-  ["any", "No limit", "Best cards, whatever they cost"],
-  ["mid", "Mid", "Roughly €150–250"],
-  ["budget", "Budget", "Under about €75"],
+const BUDGETS: [Budget, string][] = [
+  ["any", "No limit"],
+  ["mid", "Mid"],
+  ["budget", "Budget"],
 ];
 
 export default function App({ opening: openingAtLoad = null }: { opening?: { kind: Handoff["kind"]; name: string } | null } = {}) {
   const [config, setConfig] = useState<PublicConfig | null>(null);
   const [mode, setMode] = useState<Mode>("seeds");
+  const cur = useCurrency();
   const [seeds, setSeeds] = useState<(Seed | null)[]>([null, null, null, null, null]);
   const [commander, setCommander] = useState<string | null>(null);
   const [budget, setBudget] = useState<Budget>("any");
@@ -197,7 +201,9 @@ export default function App({ opening: openingAtLoad = null }: { opening?: { kin
   };
 
   /** Every build starts here: it runs now if it can, otherwise the key sheet opens first. */
-  const start = (req: GenerateRequest) => {
+  const start = (asked: GenerateRequest) => {
+    // budgets are in the prices the visitor sees: euros (Cardmarket) or dollars (TCGplayer)
+    const req: GenerateRequest = { ...asked, currency: cur };
     savedCode.set(accessCode.trim() || null);
     const a = accessFor(req);
     if (a === "none") {
@@ -675,13 +681,15 @@ export default function App({ opening: openingAtLoad = null }: { opening?: { kin
               </div>
             </fieldset>
             <fieldset className="opt">
-              <legend className="opt-label">Budget</legend>
+              <legend className="opt-label opt-label--row">
+                Budget <CurrencySwitch label="in" />
+              </legend>
               <div className="seg">
-                {BUDGETS.map(([v, label, hint]) => (
+                {BUDGETS.map(([v, label]) => (
                   <label key={v} className={`seg-item ${budget === v ? "is-on" : ""}`}>
                     <input type="radio" name="budget" value={v} checked={budget === v} onChange={() => setBudget(v)} />
                     <span className="seg-title">{label}</span>
-                    <span className="seg-hint">{hint}</span>
+                    <span className="seg-hint">{budgetHint(v, cur)}</span>
                   </label>
                 ))}
               </div>
