@@ -8,13 +8,13 @@
 export const KEY_PATTERN = /^sk-ant-[A-Za-z0-9_-]{20,200}$/;
 
 // The secret: 32 bytes as base64 (what `openssl rand -base64 32` prints) are used as they are.
-// Anything else at least 32 characters long (a hex string, a long passphrase) is hashed into a key,
-// so a secret in another format still works instead of quietly switching saved keys off.
+// Anything else at least 16 characters long (hex, base64 of fewer bytes, a long passphrase) is
+// hashed into a key, so a secret in another format still works instead of switching saved keys off.
 function secretKind(): "base64" | "hashed" | "missing" | "too-short" {
   const raw = (process.env.KEY_ENCRYPTION_SECRET ?? "").trim();
   if (!raw) return "missing";
   if (rawBytes(raw)?.length === 32) return "base64";
-  return raw.length >= 32 ? "hashed" : "too-short";
+  return raw.length >= 16 ? "hashed" : "too-short";
 }
 
 function rawBytes(raw: string): Uint8Array | null {
@@ -34,7 +34,7 @@ export const vaultOn = () => {
 export function vaultProblem(): string | null {
   const k = secretKind();
   if (k === "missing") return "KEY_ENCRYPTION_SECRET isn't set on the server (or the site wasn't redeployed after adding it).";
-  if (k === "too-short") return "KEY_ENCRYPTION_SECRET is too short: use 32 random bytes as base64 (openssl rand -base64 32).";
+  if (k === "too-short") return "KEY_ENCRYPTION_SECRET is shorter than 16 characters: use 32 random bytes as base64 (openssl rand -base64 32).";
   return null;
 }
 

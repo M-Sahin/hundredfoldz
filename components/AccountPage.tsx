@@ -81,17 +81,8 @@ export default function AccountPage() {
                   value={keyState}
                   onChange={setKeyState}
                   canSave={!!site.keyVault}
-                  lead={
-                    site.keyVault
-                      ? "Save your key here once and every device you log in on builds with it, on any model. It's stored encrypted and never sent back to the browser."
-                      : "Saving a key to your account isn't switched on for this site, so for now your key is kept in this browser."
-                  }
+                  lead={site.keyVault ? "Save your key here once and every device you log in on builds with it, on any model. It's stored encrypted and never sent back to the browser." : undefined}
                 />
-                {site.keyVaultProblem ? (
-                  <p className="fine" data-testid="key-vault-problem">
-                    For the site&apos;s owner: {site.keyVaultProblem}
-                  </p>
-                ) : null}
               </section>
             ) : null}
             <section className="panel account-danger">

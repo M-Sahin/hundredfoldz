@@ -172,7 +172,7 @@ To switch it on for your copy:
 7. Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` (or the newer publishable key as `SUPABASE_PUBLISHABLE_KEY`) in Vercel. No secret or service-role key is needed.
 8. Outside Vercel, also set `SITE_URL` (for example `https://decks.example.com`). Login links are built from it, never from request headers, so a forged `Host` header can't send someone's login link to another site. Without it, logins only work on `localhost`. On Vercel the production domain is used, and a preview deployment uses its own URL: add `https://*-your-team.vercel.app/auth/callback` to the redirect URLs if you want to log in on previews. Keep the list exact otherwise, without broad wildcards.
 
-9. **Saved API keys (optional):** run `supabase/migrations/20261027000000_api_keys.sql` the same way and set `KEY_ENCRYPTION_SECRET` (`openssl rand -base64 32`, type Secret on Vercel). Logged-in visitors then get "Save it to my account" in the key sheet.
+9. **Saved API keys (optional):** run `supabase/migrations/20261027000000_api_keys.sql` the same way and set `KEY_ENCRYPTION_SECRET` (`openssl rand -base64 32`, type Secret on Vercel), then redeploy. Logged-in visitors then get "Save it to my account" in the key sheet and on the account page. Any secret of at least 16 characters works (32 bytes of base64 are used as they are; anything else is hashed into the key). If saving doesn't show up, the server log (Vercel → Logs) says why, once per server start: `Saved API keys are off: …` (the secret is missing, or shorter than 16 characters). Don't change the secret once people have saved keys: theirs would stop opening, and they'd have to add them again.
 
 Without these settings the app works as before: no login button, decks in the browser.
 

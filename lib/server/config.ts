@@ -57,8 +57,6 @@ export interface PublicConfig {
   freeBuilds: { limit: number; model: string; modelLabel: string } | null;
   /** Logged-in visitors can save their own key to their account (sealed on the server). */
   keyVault: boolean;
-  /** With accounts on but saved keys off: why (a setup hint for the site's owner, never a secret). */
-  keyVaultProblem: string | null;
   /** Cloudflare Turnstile site key (public), when the bot check is on. */
   turnstileSiteKey: string | null;
   model: string;
@@ -78,15 +76,21 @@ export function visitorCurrency(request?: Request): Currency {
   return fromCountry ?? (isCurrency(fallback) ? fallback : "EUR");
 }
 
+let vaultWarned = false;
+
 export function publicConfig(request?: Request): PublicConfig {
   const c = serverConfig();
+  // accounts on but saved keys off: say why in the server log (the site itself just keeps keys in the browser)
+  if (!vaultWarned && c.ownKeys && supabaseConfig() && !vaultOn()) {
+    vaultWarned = true;
+    console.warn(`Saved API keys are off: ${vaultProblem()}`);
+  }
   return {
     mode: c.demo ? "demo" : "live",
     ownKeys: c.ownKeys,
     donationUrl: c.donationUrl,
     affiliates: c.affiliates,
     keyVault: c.ownKeys && vaultOn() && !!supabaseConfig(),
-    keyVaultProblem: c.ownKeys && supabaseConfig() && !vaultOn() ? vaultProblem() : null,
     freeBuilds: c.free ? { limit: c.free.perVisitor, model: c.free.model, modelLabel: modelInfo(c.free.model)?.label ?? c.free.model } : null,
     turnstileSiteKey: turnstileSiteKey(),
     model: c.demo ? "demo (scripted)" : c.model,

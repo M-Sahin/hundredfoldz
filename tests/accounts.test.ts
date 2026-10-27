@@ -312,7 +312,7 @@ test("saved key: checked with Anthropic, stored sealed with its last four, never
   }
 });
 
-test("key vault: a secret that isn't 32 bytes of base64 still works if it's long; a short one says why", async () => {
+test("key vault: a secret that isn't 32 bytes of base64 still works from 16 characters; a shorter one says why", async () => {
   const keep = process.env.KEY_ENCRYPTION_SECRET;
   const { vaultOn, vaultProblem } = await import("../lib/server/key-vault");
   try {
@@ -321,11 +321,24 @@ test("key vault: a secret that isn't 32 bytes of base64 still works if it's long
     assert.equal(vaultProblem(), null);
     const sealed = await sealKey("sk-ant-api03-" + "x".repeat(30), "u1");
     assert.equal(await openKey(sealed, "u1"), "sk-ant-api03-" + "x".repeat(30));
-    process.env.KEY_ENCRYPTION_SECRET = "short";
+    process.env.KEY_ENCRYPTION_SECRET = "short-secret";
     assert.equal(vaultOn(), false);
-    assert.match(vaultProblem() ?? "", /too short/);
+    assert.match(vaultProblem() ?? "", /shorter than 16/);
     delete process.env.KEY_ENCRYPTION_SECRET;
     assert.match(vaultProblem() ?? "", /isn't set/);
+  } finally {
+    if (keep === undefined) delete process.env.KEY_ENCRYPTION_SECRET;
+    else process.env.KEY_ENCRYPTION_SECRET = keep;
+  }
+});
+
+test("key vault: base64 of 16 bytes (openssl rand -base64 16) works", async () => {
+  const keep = process.env.KEY_ENCRYPTION_SECRET;
+  const { vaultOn } = await import("../lib/server/key-vault");
+  try {
+    process.env.KEY_ENCRYPTION_SECRET = Buffer.from("0123456789abcdef").toString("base64"); // 24 characters
+    assert.equal(vaultOn(), true);
+    assert.equal(await openKey(await sealKey("sk-ant-api03-" + "y".repeat(30), "u2"), "u2"), "sk-ant-api03-" + "y".repeat(30));
   } finally {
     if (keep === undefined) delete process.env.KEY_ENCRYPTION_SECRET;
     else process.env.KEY_ENCRYPTION_SECRET = keep;
