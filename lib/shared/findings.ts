@@ -59,7 +59,7 @@ export function deckFindings(a: DeckAnalysis, openers: OpenerReport | null, vali
     const name = COLOR[c.color] ?? c.color;
     const card = c.hardest ?? "the early cards";
     // a target above the land count isn't reachable: say what it means instead of a number nobody can hit
-    if (c.target > lands)
+    if (c.target >= lands)
       weak.push({ topic: "Mana", text: `${card} needs a lot of ${name} early; with ${c.sources} ${name} sources it will often come down late.`, ...(c.hardest ? { cards: [c.hardest] } : {}) });
     else weak.push({ topic: "Mana", text: `${c.sources} ${name} sources; ${card} want${c.hardest ? "s" : ""} about ${c.target} to come down on time.`, ...(c.hardest ? { cards: [c.hardest] } : {}) });
   }
