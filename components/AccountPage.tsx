@@ -1,8 +1,12 @@
 "use client";
-// /account: who you're logged in as, log out, delete the account. Logged out: the login form.
+// /account: who you're logged in as, your Claude API key, log out, delete the account.
+// Logged out: the login form.
 import { useEffect, useState } from "react";
 import { account, useAccount } from "../lib/client/account";
 import { LoginForm } from "./LoginForm";
+import { KeyPanel, type KeyState } from "./KeyPanel";
+import { useSiteConfig } from "../lib/client/site-config";
+import { DEFAULT_MODEL } from "../lib/shared/models";
 import { SiteFooter } from "./SiteFooter";
 import { SiteHeader } from "./SiteHeader";
 
@@ -19,6 +23,8 @@ export default function AccountPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleted, setDeleted] = useState(false);
+  const site = useSiteConfig();
+  const [keyState, setKeyState] = useState<KeyState>({ key: "", model: DEFAULT_MODEL });
 
   useEffect(() => {
     const why = new URLSearchParams(window.location.search).get("login");
@@ -69,6 +75,20 @@ export default function AccountPage() {
                 </button>
               </div>
             </section>
+            {site?.ownKeys ? (
+              <section className="panel account-key" id="key" data-testid="account-key">
+                <KeyPanel
+                  value={keyState}
+                  onChange={setKeyState}
+                  canSave={!!site.keyVault}
+                  lead={
+                    site.keyVault
+                      ? "Save your key here once and every device you log in on builds with it, on any model. It's stored encrypted and never sent back to the browser."
+                      : "This site keeps your key in this browser only."
+                  }
+                />
+              </section>
+            ) : null}
             <section className="panel account-danger">
               <h3>Delete your account</h3>
               <p className="panel-sub">This deletes your account and every deck saved in it, right away. It can&apos;t be undone. Decks you shared by link keep working.</p>
