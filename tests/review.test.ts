@@ -47,13 +47,20 @@ test("the numbers: weak and strong points with reasons", () => {
   assert.match(weak, /Lands: 33, below the usual 35 to 38/);
   assert.match(weak, /Card draw: 4, below the usual 9 to 12/);
   assert.match(weak, /Curve: Heavy/);
-  assert.match(weak, /Mana: 14 green sources; Lotus Cobra wants about 19/);
+  assert.match(weak, /Mana: 14 green sources; Lotus Cobra wants about 19 to come down on time/);
   assert.match(weak, /Opening hands: Keeps its first seven only 50%/);
   assert.match(strong, /Ramp: 10/);
   assert.match(strong, /Commander: Meren comes down on turn 4 in 70%/);
   assert.match(strong, /Identity: Mostly cards for this deck's plan/);
   assert.match(strong, /1 combo/);
   assert.equal(f.combos.length, 1);
+});
+
+test("an unreachable source target is said in words, not as a number", () => {
+  const f = deckFindings(analysis({ colors: [{ color: "B", pips: 40, sources: 26, target: 36, hardest: "Dark Prophecy" }] }), null);
+  const mana = f.weak.filter((x) => x.topic === "Mana").map((x) => x.text).join(" ");
+  assert.match(mana, /Dark Prophecy needs a lot of black early; with 26 black sources it will often come down late/);
+  assert.ok(!/36/.test(mana));
 });
 
 test("Claude's review is cleaned: strings only, capped, synergies need two cards", () => {

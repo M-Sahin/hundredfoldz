@@ -53,10 +53,17 @@ export function deckFindings(a: DeckAnalysis, openers: OpenerReport | null, vali
   if (top >= 10) weak.push({ topic: "Curve", text: `${top} cards cost six or more: hands can be slow to start.` });
 
   // mana
-  for (const c of a.colors) {
-    if (c.target && c.sources < c.target) weak.push({ topic: "Mana", text: `${c.sources} ${COLOR[c.color] ?? c.color} sources; ${c.hardest ?? "the early cards"} want${c.hardest ? "s" : ""} about ${c.target}.`, ...(c.hardest ? { cards: [c.hardest] } : {}) });
+  const lands = a.lands + a.mdfcLands;
+  const short = a.colors.filter((c) => c.target && c.target - c.sources >= 2);
+  for (const c of short) {
+    const name = COLOR[c.color] ?? c.color;
+    const card = c.hardest ?? "the early cards";
+    // a target above the land count isn't reachable: say what it means instead of a number nobody can hit
+    if (c.target > lands)
+      weak.push({ topic: "Mana", text: `${card} needs a lot of ${name} early; with ${c.sources} ${name} sources it will often come down late.`, ...(c.hardest ? { cards: [c.hardest] } : {}) });
+    else weak.push({ topic: "Mana", text: `${c.sources} ${name} sources; ${card} want${c.hardest ? "s" : ""} about ${c.target} to come down on time.`, ...(c.hardest ? { cards: [c.hardest] } : {}) });
   }
-  if (a.colors.length && a.colors.every((c) => !c.target || c.sources >= c.target)) strong.push({ topic: "Mana", text: "Enough sources of every color for the early cards." });
+  if (a.colors.length && !short.length) strong.push({ topic: "Mana", text: "Enough sources of every color for the early cards." });
   if (a.tappedLands > 8) weak.push({ topic: "Mana", text: `${a.tappedLands} lands always enter tapped: that adds up to lost turns.` });
 
   // opening hands (goldfished)
