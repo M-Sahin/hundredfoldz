@@ -4,6 +4,7 @@
 import { LIMITS, clientIp, rateLimit } from "./ratelimit";
 import { decodePayload } from "../shared/share";
 import { kvConfig, saveShare } from "./store";
+import { count } from "./stats";
 
 export function canonicalOrigin(request: Request): string {
   const site = process.env.SITE_URL?.trim();
@@ -38,6 +39,7 @@ export async function handleShare(request: Request): Promise<Response> {
   if (!(await rateLimit(LIMITS.share, ip)).ok) return Response.json({ url: long, short: false });
   try {
     const id = await saveShare(d);
+    await count("share_link");
     return Response.json({ url: `${origin}/d/${id}`, short: true });
   } catch {
     return Response.json({ url: long, short: false }); // store down: the long link still works

@@ -57,6 +57,7 @@ npm ci && npm run build && npm start
 | `AFFILIATE_TCGPLAYER`, `AFFILIATE_CARDKINGDOM`, `AFFILIATE_CARDMARKET` | no | Affiliate tags for the "Buy the cards" and "Find this box" links: a link template with `{url}` where the shop link goes (what Impact gives you for TCGplayer, e.g. `https://tcgplayer.pxf.io/c/…?u={url}`), or parameters to add to the shop link (`partner=yourname`). Without them the links work, untagged. When any is set, the page says some links are affiliate links. |
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY` | no | Accounts and decks saved to them (see [Accounts](#accounts-optional)). `SUPABASE_PUBLISHABLE_KEY` and the `NEXT_PUBLIC_` names the Supabase Vercel integration sets work too. |
 | `KEY_ENCRYPTION_SECRET` | no | Lets logged-in visitors save their own Claude API key to their account. 32 random bytes, base64 (`openssl rand -base64 32`). Keys are sealed with it (AES-256-GCM, bound to the user's id), so the database alone can't reveal them. Changing it makes saved keys unreadable (people add theirs again). Needs [accounts](#accounts-optional) and the `api_keys` migration. |
+| `ADMIN_EMAILS` | no | Email addresses (comma-separated) that may open `/stats`, the site's usage numbers. Needs [accounts](#accounts-optional): an admin logs in like anyone else. See [Stats](#stats). |
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | no | Cloudflare Turnstile, the mostly invisible check that a visitor isn't a bot (see [Abuse protection](#abuse-protection)). |
 | `EV_DATA_URL` | no | Where the Box EV data is read from. Defaults to the `ev-data` branch of [M-Sahin/hundredfoldz](https://github.com/M-Sahin/hundredfoldz/tree/ev-data). |
 | `BUILDS_PER_HOUR_PER_IP` | no | A best-effort limit per IP, kept per server instance (default 6). |
@@ -120,6 +121,17 @@ Phones pause or drop connections when you switch apps, so a build doesn't depend
 **Function duration:** a build usually takes 1–3 minutes. On Vercel, `app/api/generate/route.ts` sets `maxDuration = 300`, which is the Hobby maximum on Fluid compute. The agent submits by about 3½ minutes and stops at about 4½ minutes with the best deck it has (it keeps 25 seconds after each Claude call to check the deck), so it finishes inside the limit. On Pro you can raise `maxDuration` (the maximum is 800). Docker and Node.js have no such limit.
 
 **Keeping your copy up to date:** use **Sync fork** on GitHub (or `git pull` for Docker). Vercel redeploys automatically when your copy changes.
+
+## Stats
+
+`/stats` shows what happens on the site, for the people who run it: builds started, finished, failed and stopped (by who pays for them: free, own key, saved key), why builds failed, how long finished builds took, the key wall (free builds used up, key sheet shown, keys added, own-key builds), what happens after a deck (saved, shared, copied, shop links), accounts, and errors in the server and in browsers, with the most common browser error messages.
+
+- **Only counts.** Each event adds one to a count for the day (`lib/shared/stats-events.ts` lists them all). Nothing says who did it: no ids, no IP addresses, no cookies. Error messages are cleaned of numbers, links, email addresses and keys before they're counted. That's why the funnels are rough ratios: someone who opens the key sheet twice counts twice.
+- **Where.** In the Upstash store, one hash per day, kept 400 days. Without a store, each server instance counts in its own memory (the page says so).
+- **Who can see it.** Set `ADMIN_EMAILS` and log in with one of those addresses. The server checks the session with Supabase before showing anything; everyone else gets "not found".
+- **What the browser sends.** `POST /api/stats` accepts only the browser events in that list (key sheet, browser saves, exports, shop links, the share sheet, page errors), rate limited per address. Builds, keys, account saves and share links are counted on the server.
+
+Vercel Web Analytics still counts page views. Its custom events need a paid plan, which is why these counts are the site's own.
 
 ## Accounts (optional)
 

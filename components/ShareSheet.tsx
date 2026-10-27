@@ -4,6 +4,7 @@ import { exportText } from "../lib/shared/deck-utils";
 import { encodeDeck, shareTitle } from "../lib/shared/share";
 import { IMPORT_SITES, redditPost, shareTargets } from "../lib/shared/share-targets";
 import type { Deck } from "../lib/shared/types";
+import { track } from "../lib/client/track";
 
 async function copyText(text: string): Promise<boolean> {
   try {
@@ -19,7 +20,14 @@ export function ShareButton({ deck, shareD }: { deck: Deck; shareD?: string }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" className="btn btn--brass" onClick={() => setOpen(true)}>
+      <button
+        type="button"
+        className="btn btn--brass"
+        onClick={() => {
+          track("share_sheet");
+          setOpen(true);
+        }}
+      >
         <ShareIcon /> Share deck
       </button>
       {open ? <ShareSheet deck={deck} shareD={shareD} onClose={() => setOpen(false)} /> : null}

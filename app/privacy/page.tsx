@@ -29,6 +29,7 @@ export default function Page() {
         <h3>Services we use</h3>
         <ul>
           <li>Vercel hosts the site, with Vercel Web Analytics, which counts visits without cookies.</li>
+          <li>The site also keeps daily counts of what happens (builds started and finished, decks saved and shared, errors) to see what works. They&apos;re only totals per day: nothing about who did what, no cookies, no IP addresses.</li>
           <li>Scryfall for card data and images, Commander Spellbook for combos, and Anthropic&apos;s Claude for building decks. Your deck requests go to Anthropic to be built.</li>
           <li>Supabase for accounts and saved decks.</li>
         </ul>

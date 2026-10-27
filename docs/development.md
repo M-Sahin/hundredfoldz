@@ -31,6 +31,7 @@ CI (`.github/workflows/ci.yml`) runs all of these on every push except the eval 
 app/                    pages: / (builder), /bracket, /deck?d= and /d/<id> (shared decks); layout, CSS
 app/api/                generate (+ reconnect, stop), key/check, bracket, share, deck/resolve, og, config, cards/*
 proxy.ts                Content Security Policy with a per-request nonce
+instrumentation.ts      counts uncaught server errors for /stats
 components/             App (flow and state), SeedHand, CardSearch, ForgeView (live build), DeckView, CardFace,
                         KeyPanel, CollectionPanel, MyDecks, ShareSheet, SharedDeck, BracketChecker
 lib/server/             agent loop, engine variants, Claude client, Scryfall client, validation, combo check,

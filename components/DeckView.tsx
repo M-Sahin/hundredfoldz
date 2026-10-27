@@ -16,6 +16,7 @@ import { useSiteConfig } from "../lib/client/site-config";
 import { CardFace, IdentityPips, ManaCost } from "./CardFace";
 import { ShareButton } from "./ShareSheet";
 import { Menu } from "./Menu";
+import { track } from "../lib/client/track";
 
 type Tab = "cards" | "list" | "numbers" | "hand";
 type CardsView = "stacks" | "grid";
@@ -61,6 +62,7 @@ export function DeckView({
   const copy = async (style: "moxfield" | "arena") => {
     try {
       await navigator.clipboard.writeText(exportText(deck, style));
+      track(`export|${style}`);
       setCopied(style);
       setTimeout(() => setCopied(null), 2500);
     } catch {
@@ -68,6 +70,7 @@ export function DeckView({
     }
   };
   const download = () => {
+    track("export|txt");
     const blob = new Blob([exportText(deck)], { type: "text/plain" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);

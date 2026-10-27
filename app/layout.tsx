@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Alegreya, Alegreya_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { PageErrors } from "../components/PageErrors";
 import "./globals.css";
 
 const display = Alegreya({ subsets: ["latin"], weight: ["500", "700", "800"], variable: "--font-display", display: "swap" });
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${display.variable} ${ui.variable}`}>
       <body>
         {children}
+        <PageErrors />
         {/* Vercel Web Analytics only exists on Vercel; elsewhere (Docker, Node, CI) the script would 404 */}
         {process.env.VERCEL === "1" || process.env.VERCEL_ENV ? <Analytics /> : null}
       </body>

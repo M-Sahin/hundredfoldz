@@ -730,6 +730,58 @@ await shot("phone-decks", { width: 390, height: 844 }, async (p) => {
   await p.waitForTimeout(1500);
 }, 2);
 
+// /stats: only admins can read the real numbers, so the page is shown with made-up ones (the
+// request is answered in the browser); the real endpoint must say "not found" to everyone else
+{
+  const days = Array.from({ length: 30 }, (_, i) => {
+    const date = new Date(Date.now() - (29 - i) * 86400000).toISOString().slice(0, 10);
+    const w = 1 + (i % 7 === 5 || i % 7 === 6 ? 0.6 : 0) + i / 40;
+    const r = (n) => Math.round(n * w);
+    return {
+      date,
+      counts: {
+        "build_start|free": r(14), "build_ok|free": r(11), "build_fail|free": r(2), "build_stop|free": r(1),
+        "build_start|own": r(5), "build_ok|own": r(4), "build_fail|own": r(1),
+        "build_start|saved": r(2), "build_ok|saved": r(2),
+        "build_mode|new": r(18), "build_mode|complete": r(2), "build_mode|upgrade": r(1),
+        "build_model|haiku": r(14), "build_model|sonnet": r(6), "build_model|opus": r(1),
+        "build_fail_why|no_deck": r(2), "build_fail_why|bad_seeds": r(0.5), "build_fail_why|credit": r(0.4),
+        "build_time|1_2m": r(6), "build_time|2_3m": r(8), "build_time|3_4m": r(3),
+        "free_refused|used": r(4), "key_sheet|free_used": r(4), "key_sheet|opened": r(1), "key_check|ok": r(2), "key_check|bad": r(1), "key_saved": r(0.5),
+        "deck_saved|account": r(3), "deck_saved|browser": r(5), "share_sheet": r(3), "share_link": r(2),
+        "export|moxfield": r(4), "export|arena": r(1), "export|txt": r(0.5), "buy|cardmarket": r(1), "buy|tcgplayer": r(1),
+        "login_email": r(1), "client_error": i % 9 === 0 ? 2 : 0,
+      },
+      errors: i % 9 === 0 ? { "Cannot read properties of undefined (reading 'info')": 2 } : {},
+    };
+  });
+  const fakeStats = async (p) => p.route("**/api/stats?*", (route) => (route.request().method() === "GET" ? route.fulfill({ json: { days, store: "shared" } }) : route.continue()));
+  const probe = await browser.newPage();
+  const real = await probe.request.get(`${base}/api/stats?days=7`);
+  if (real.status() !== 404) errors.push(`/api/stats answers ${real.status()} without an admin login (should be 404)`);
+  const posted = await probe.request.post(`${base}/api/stats`, { data: { e: "export|moxfield" } });
+  if (posted.status() !== 204) errors.push(`POST /api/stats answered ${posted.status()} (should be 204)`);
+  const refused = await probe.request.post(`${base}/api/stats`, { data: { e: "build_ok|free" } });
+  if (refused.status() !== 400) errors.push(`POST /api/stats took a server-only event (${refused.status()})`);
+  await probe.close();
+  await run("50-stats", { width: 1280, height: 900 }, async (p) => {
+    await fakeStats(p);
+    await p.goto(`${base}/stats`, { waitUntil: "networkidle" });
+    await p.waitForSelector(".stats-tiles", { timeout: 10000 });
+    await p.hover(".stats-col >> nth=20");
+  });
+  await run("51-stats-phone", { width: 360, height: 740 }, async (p) => {
+    await fakeStats(p);
+    await p.goto(`${base}/stats`, { waitUntil: "networkidle" });
+    await p.waitForSelector(".stats-tiles", { timeout: 10000 });
+    await sweep(p, "stats");
+  });
+  await run("52-stats-nobody", { width: 1280, height: 700 }, async (p) => {
+    await p.goto(`${base}/stats`, { waitUntil: "networkidle" });
+    await p.waitForSelector("text=Nothing here", { timeout: 10000 });
+  });
+}
+
 await browser.close();
 console.log(errors.length ? `Browser errors:\n${errors.join("\n")}` : "No browser errors");
 if (errors.some((e) => !/net::ERR|Failed to load resource/.test(e))) process.exit(1);

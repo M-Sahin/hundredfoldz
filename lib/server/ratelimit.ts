@@ -125,6 +125,8 @@ export const LIMITS = {
   deckSave: { kind: "save", max: 120 },
   deckSaveIp: { kind: "save-ip", max: 300 },
   accountDelete: { kind: "delete", max: 10 },
+  /** actions the browser counts for /stats */
+  stats: { kind: "stats", max: 300 },
 } satisfies Record<string, LimitRule | ((n: number) => LimitRule)>;
 
 /** For a route: null when the request may go ahead, else the 429 to send. Counted per IP. */

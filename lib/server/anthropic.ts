@@ -196,6 +196,19 @@ export function friendlyModelError(e: unknown, ownKey = true): string {
   return raw;
 }
 
+/** A short code for why a Claude call failed, for the build stats (same checks as friendlyModelError). */
+export function modelErrorCode(e: unknown): "credit" | "spend_limit" | "bad_key" | "no_access" | "rate_limit" | "overloaded" | "error" {
+  const status = e instanceof ModelError ? e.status : 0;
+  const m = ((e as Error)?.message ?? String(e)).toLowerCase();
+  if (/credit balance|purchase credits|billing/.test(m)) return "credit";
+  if (/usage limit|spend limit|specified api usage limits/.test(m)) return "spend_limit";
+  if (status === 401 || /invalid x-api-key|authentication_error|invalid api key/.test(m)) return "bad_key";
+  if (status === 403 || status === 404 || /permission|not_found_error|model:/.test(m)) return "no_access";
+  if (status === 429) return "rate_limit";
+  if (status === 529 || /overloaded/.test(m)) return "overloaded";
+  return "error";
+}
+
 /** The models this key can use (also proves the key works). */
 export async function listModels(apiKey: string): Promise<{ id: string; name: string }[]> {
   const res = await fetch("https://api.anthropic.com/v1/models?limit=100", {

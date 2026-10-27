@@ -2,6 +2,9 @@
 // Shop buttons for a deck's cards or a sealed box, with an affiliate disclosure when tagged.
 import { useState } from "react";
 import { AFFILIATE_NOTE, type BuyLink } from "../lib/shared/buy";
+import { track } from "../lib/client/track";
+
+const shopEvent = (shop: string) => (["tcgplayer", "cardkingdom", "cardmarket"].includes(shop) ? `buy|${shop}` : "buy|other") as "buy|other";
 
 export function BuyLinks({ links, copyText, note }: { links: BuyLink[]; copyText?: string; note?: string }) {
   const [msg, setMsg] = useState<string | null>(null);
@@ -16,6 +19,7 @@ export function BuyLinks({ links, copyText, note }: { links: BuyLink[]; copyText
               type="button"
               className="btn buy-shop"
               onClick={async () => {
+                track(shopEvent(l.shop));
                 let ok = true;
                 try {
                   await navigator.clipboard.writeText(copyText);
@@ -29,7 +33,7 @@ export function BuyLinks({ links, copyText, note }: { links: BuyLink[]; copyText
               {l.label} <small>{l.region}</small>
             </button>
           ) : (
-            <a key={l.shop} className="btn buy-shop" href={l.href} target="_blank" rel={`noopener noreferrer${l.tagged ? " sponsored" : ""}`}>
+            <a key={l.shop} className="btn buy-shop" onClick={() => track(shopEvent(l.shop))} href={l.href} target="_blank" rel={`noopener noreferrer${l.tagged ? " sponsored" : ""}`}>
               {l.label} <small>{l.region}</small>
             </a>
           ),

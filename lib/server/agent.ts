@@ -288,14 +288,14 @@ export async function runAgent(req: GenerateRequest, opts: AgentOptions): Promis
   const lookupNames = completing ? [...req.seeds, req.commander ?? "", req.partner ?? ""].filter(Boolean) : req.seeds;
   const { seeds, problems } = await resolveSeeds(lookupNames);
   if (problems.length) {
-    emit({ type: "error", message: problems.join(" ") });
+    emit({ type: "error", message: problems.join(" "), code: "bad_seeds" });
     return null;
   }
   const byName = (n: string) => seeds.find((s) => s.name.toLowerCase() === n.toLowerCase() || s.name.toLowerCase().split(" // ")[0] === n.toLowerCase().split(" // ")[0]);
   if (req.commander) {
     const c = byName(req.commander);
     if (!c?.canBeCommander) {
-      emit({ type: "error", message: `${req.commander} can't be a commander.` });
+      emit({ type: "error", message: `${req.commander} can't be a commander.`, code: "not_commander" });
       return null;
     }
     req = { ...req, commander: c.name };
@@ -327,7 +327,7 @@ export async function runAgent(req: GenerateRequest, opts: AgentOptions): Promis
     // the user's deck is the accepted deck; the review round is the whole job
     const start = await upgradeStart(req, seeds, run, left);
     if (start.deck.cards.length < 20) {
-      emit({ type: "error", message: "Couldn't read enough of that deck to upgrade it." });
+      emit({ type: "error", message: "Couldn't read enough of that deck to upgrade it.", code: "unreadable_deck" });
       return null;
     }
     reviewing = true;
@@ -399,7 +399,7 @@ export async function runAgent(req: GenerateRequest, opts: AgentOptions): Promis
     emit({ type: "usage", usage: { ...usage }, model: opts.model });
 
     if (msg.stop_reason === "refusal") {
-      emit({ type: "error", message: "Claude declined to build this deck. Try different seeds or wording." });
+      emit({ type: "error", message: "Claude declined to build this deck. Try different seeds or wording.", code: "refused" });
       return lastDeck;
     }
     // A tool call cut off by max_tokens: discard the turn and retry once with more room.
@@ -556,7 +556,7 @@ export async function runAgent(req: GenerateRequest, opts: AgentOptions): Promis
   if (lastDeck) return lastDeck;
   // for the server log (Vercel's logs): why this build ended without a deck
   console.warn(`build ended without a deck: ${why}; ${turns} turns, ${Math.round((Date.now() - started) / 1000)} s, ${submits} submits, model ${opts.model}, engine ${engine.name}${engine.effort ? `, effort ${engine.effort}` : ""}`);
-  emit({ type: "error", message: "Claude didn't finish a deck in time. Try again; it usually works on a second run." });
+  emit({ type: "error", message: "Claude didn't finish a deck in time. Try again; it usually works on a second run.", code: "no_deck" });
   return null;
 }
 

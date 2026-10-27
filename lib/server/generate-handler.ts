@@ -1,7 +1,7 @@
 // Framework-independent handler for POST /api/generate (used by the Next.js route and tests).
 import { LIMITS, clientIp, rateLimit, rateLimitAll, tooMany } from "./ratelimit";
 import { cleanShape } from "../shared/shape";
-import { anthropicCaller, friendlyModelError, listModels, type ModelCaller } from "./anthropic";
+import { anthropicCaller, friendlyModelError, listModels, modelErrorCode, type ModelCaller } from "./anthropic";
 import { DEFAULT_MODEL, MODEL_ID } from "../shared/models";
 import { JOB_ID, JobNotFound, jobExists, newJobId, startJob, stopJob, tailJob } from "./jobs";
 import { runAgent } from "./agent";
@@ -10,6 +10,7 @@ import { DEMO_SEEDS, demoCaller } from "./demo";
 import { claimFreeBuild, freeRefusal, freeStatus, spendFreeTokens, visitor } from "./free-builds";
 import { turnstileError, verifyTurnstile } from "./turnstile";
 import { savedKeyFor } from "./account-handler";
+import { count, modelFamily, timeBucket } from "./stats";
 import type { Budget, GenerateRequest, StreamEvent } from "../shared/types";
 import { MAX_COLLECTION } from "../shared/types";
 
@@ -142,10 +143,12 @@ export async function handleGenerate(request: Request, override?: GenerateOverri
   // or the key saved to the visitor's account (sealed on the server; the browser never has it)
   let savedModel: string | null = null;
   let savedCookies: string[] = [];
+  let fromSaved = false;
   if (!userKey && request.headers.get("x-use-saved-key") === "1") {
     const saved = await savedKeyFor(request);
     if (!saved) return Response.json({ error: "The key saved to your account couldn't be used. Log in again, or add your key again.", code: "saved_key" }, { status: 400 });
     userKey = saved.key;
+    fromSaved = true;
     savedModel = saved.model;
     savedCookies = saved.setCookies;
   }
@@ -208,7 +211,10 @@ export async function handleGenerate(request: Request, override?: GenerateOverri
     const v = visitor(request);
     if (v.setCookie) headers.append("set-cookie", v.setCookie);
     const claim = await claimFreeBuild(free, v);
-    if (!claim.ok) return Response.json({ error: freeRefusal(claim.reason, free), code: "free_used" }, { status: 402, headers });
+    if (!claim.ok) {
+      await count(`free_refused|${claim.reason}`);
+      return Response.json({ error: freeRefusal(claim.reason, free), code: "free_used" }, { status: 402, headers });
+    }
     refund = claim.refund;
   }
   const wanted = typeof (body as any)?.model === "string" ? String((body as any).model).trim() : "";
@@ -219,23 +225,42 @@ export async function handleGenerate(request: Request, override?: GenerateOverri
   const engine = demo ? cfg.engine : free ? { ...cfg.liveEngine, effort: free.effort as typeof cfg.liveEngine.effort } : cfg.liveEngine;
   const id = newJobId();
   const started = Date.now();
+  // for the stats: who pays for this build, and how it ends
+  const access = userKey ? (fromSaved ? "saved" : "own") : demo ? "demo" : free ? "free" : "server";
   const run = startJob(id, async (emitRaw, signal) => {
     let usage: Record<string, number> | undefined;
+    let failCode: string | undefined;
+    let ended: "ok" | "fail" | "stop" = "fail";
     const emit = (e: StreamEvent) => {
       if (e.type === "usage") usage = { ...e.usage };
+      if (e.type === "error" && e.code) failCode = e.code;
       emitRaw(e);
     };
+    await count([`build_start|${access}`, `build_mode|${req.mode ?? "new"}`, ...(demo ? [] : [`build_model|${modelFamily(model)}` as const])]);
     try {
       // free builds are told to wrap up sooner: a smaller model at high effort can run long, and a
       // build that hits the hard deadline without a deck is a wasted wait
       const result = await runAgent(req, { model: demo ? "demo" : model, callModel, emit, signal, engine, ...(free ? { timeBudgetMs: 150_000 } : {}) });
-      if (result) emit({ type: "deck", deck: result.deck, validation: result.validation, analysis: result.analysis, review: result.review, ...(result.swaps ? { swaps: result.swaps } : {}) });
+      if (result) {
+        ended = "ok";
+        emit({ type: "deck", deck: result.deck, validation: result.validation, analysis: result.analysis, review: result.review, ...(result.swaps ? { swaps: result.swaps } : {}) });
+      }
       // no deck and not stopped by the visitor: the free build doesn't count
       else if (!signal.aborted) await refund?.();
+      else ended = "stop";
     } catch (e) {
       if (!signal.aborted) await refund?.();
+      else ended = "stop";
+      failCode = modelErrorCode(e);
       emit({ type: "error", message: friendlyModelError(e, !!userKey) || "Something went wrong." });
     } finally {
+      await count(
+        ended === "ok"
+          ? [`build_ok|${access}`, `build_time|${timeBucket(Date.now() - started)}`]
+          : ended === "stop"
+            ? [`build_stop|${access}`]
+            : [`build_fail|${access}`, `build_fail_why|${(failCode ?? "error") as "error"}`],
+      );
       // free builds count toward the site's daily token budget, whatever the outcome
       if (free && usage) await spendFreeTokens((usage.input ?? 0) + (usage.output ?? 0) + (usage.cacheRead ?? 0) + (usage.cacheWrite ?? 0)).catch(() => {});
       emit({ type: "done", ms: Date.now() - started });
@@ -276,8 +301,10 @@ export async function handleKeyCheck(request: Request): Promise<Response> {
   if (!r.ok) return tooMany("Too many key checks. Try again later.", r);
   try {
     const models = await listModels(key);
+    await count("key_check|ok");
     return Response.json({ ok: true, models }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
+    await count("key_check|bad");
     return Response.json({ error: friendlyModelError(e) }, { status: 400 });
   }
 }

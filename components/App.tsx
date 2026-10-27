@@ -21,6 +21,7 @@ import { UpgradeSummary } from "./UpgradeSummary";
 import { ForgeView, type DraftCell, type LogItem } from "./ForgeView";
 import { SeedHand, seedProblem, type Seed } from "./SeedHand";
 import { useHumanCheck } from "./useHumanCheck";
+import { track } from "../lib/client/track";
 
 type Phase = "setup" | "forging" | "result";
 type Mode = "seeds" | "deck";
@@ -205,6 +206,7 @@ export default function App({ opening: openingAtLoad = null }: { opening?: { kin
         return;
       }
       pending.current = req;
+      track(config.freeBuilds ? "key_sheet|free_used" : "key_sheet|needs_key");
       setSheet({
         lead: config.freeBuilds
           ? `You've used your ${config.freeBuilds.limit} free builds. Add your own Claude API key to keep building, on any model. You pay Anthropic directly: about 25 cents a deck on Sonnet.`
@@ -321,6 +323,7 @@ export default function App({ opening: openingAtLoad = null }: { opening?: { kin
         // the server says there are none left (another tab, or the daily cap): ask for a key
         setFree((f) => (f ? { ...f, remaining: 0 } : { limit: config?.freeBuilds?.limit ?? 0, used: config?.freeBuilds?.limit ?? 0, remaining: 0, model: config?.freeBuilds?.model ?? "" }));
         pending.current = req;
+        track("key_sheet|free_used");
         setSheet({ lead: "Your free builds are used up. Add your own Claude API key to keep building, on any model. You pay Anthropic directly: about 25 cents a deck on Sonnet." });
       }
     }
@@ -351,6 +354,7 @@ export default function App({ opening: openingAtLoad = null }: { opening?: { kin
         myDecks.add(entry);
         setLocalSave(entry);
         setSaveState("browser");
+        track("deck_saved|browser");
       }
       setHasDecks(true);
     } catch (e) {
@@ -512,6 +516,7 @@ export default function App({ opening: openingAtLoad = null }: { opening?: { kin
 
   const openSheet = (lead?: string) => {
     pending.current = null;
+    track("key_sheet|opened");
     setSheet({ lead });
   };
   const keyDone = () => {

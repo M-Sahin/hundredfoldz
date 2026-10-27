@@ -5,6 +5,7 @@ import { decodePayload } from "../shared/share";
 import { KEY_PATTERN, openKey, sealKey, vaultOn } from "./key-vault";
 import { friendlyModelError, listModels } from "./anthropic";
 import { MODEL_ID } from "../shared/models";
+import { count } from "./stats";
 import {
   COOKIE,
   clearSessionCookies,
@@ -118,6 +119,7 @@ export async function handleEmail(request: Request, deps: Deps = {}): Promise<Re
   } catch (e) {
     return json({ error: friendly(e) }, 502);
   }
+  await count("login_email");
   return json({ sent: true }, 200, [cookie(COOKIE.verifier, verifier, 3600, secure), cookie(COOKIE.next, safeNext(body?.next), 3600, secure)]);
 }
 
@@ -190,6 +192,7 @@ export async function handleDeleteAccount(request: Request, deps: Deps = {}): Pr
   } catch (e) {
     return json({ error: friendly(e) }, 502, auth.setCookies);
   }
+  await count("account_deleted");
   return json({ deleted: true }, 200, clearSessionCookies(isSecure(request)));
 }
 
@@ -290,6 +293,8 @@ export async function handleDecks(request: Request, deps: Deps = {}): Promise<Re
     if (!rows.length) return json({ error: "That deck couldn't be read." }, 400, auth.setCookies);
     // the same deck twice is one row (unique user_id + payload hash): ignore duplicates
     const saved = await rest<any[]>(cfg, auth.token, `decks?on_conflict=user_id,d_hash&select=${LIST}`, { method: "POST", headers: { prefer: "resolution=ignore-duplicates,return=representation" }, body: JSON.stringify(rows) }, deps.fetch);
+    // the Save button sends one deck; moving a browser's decks over sends many (not counted as saves)
+    if (rows.length === 1 && saved.length === 1) await count("deck_saved|account");
     return json({ saved: saved.map(toCloud), duplicates: rows.length - saved.length, skipped }, 201, auth.setCookies);
   } catch (e) {
     return json({ error: friendly(e) }, e instanceof SupabaseError && e.status === 401 ? 401 : 502, auth.setCookies);
@@ -376,6 +381,7 @@ export async function handleSavedKey(request: Request, deps: Deps & { listModels
     }
     const row = { user_id: auth.user.id, sealed: await sealKey(key, auth.user.id), last4: key.slice(-4), model };
     await rest(cfg, auth.token, "api_keys?on_conflict=user_id", { method: "POST", headers: { prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(row) }, deps.fetch);
+    await count("key_saved");
     return json({ saved: true, last4: row.last4, model, models }, 200, auth.setCookies);
   } catch (e) {
     return json({ error: friendly(e) }, e instanceof SupabaseError && e.status === 401 ? 401 : 502, auth.setCookies);
