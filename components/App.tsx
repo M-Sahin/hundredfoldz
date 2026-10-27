@@ -37,6 +37,8 @@ interface Result {
   free?: boolean;
   /** Upgrade mode: the swaps Claude made to the user's deck. */
   swaps?: Swap[];
+  /** Where this deck is saved in My decks, if it is (checked again when it's shown later). */
+  saved?: { where: "account" | "browser"; id?: string };
 }
 
 const lastDeck = storage<Result>("hundredfold:last-deck");
@@ -377,13 +379,15 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
       // logged in: into the account; otherwise into this browser
       const a = await loadAccount();
       if (a.user) {
-        await cloudDecks.save(entry);
+        const res = await cloudDecks.save(entry);
         setLocalSave(null);
         setSaveState("account");
+        markSaved(r, "account", (res.saved[0] as { id?: string } | undefined)?.id);
       } else {
         myDecks.add(entry);
         setLocalSave(entry);
         setSaveState("browser");
+        markSaved(r, "browser", entry.id);
         track("deck_saved|browser");
       }
       setHasDecks(true);
@@ -394,13 +398,46 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
     }
   };
 
-  /** A deck opened from My decks or "Your last deck" is already saved somewhere. */
+  /** Is this deck still in My decks (it may have been deleted since)? */
+  const stillSaved = async (r: Result): Promise<"account" | "browser" | "unsaved"> => {
+    const s = r.saved;
+    if (!s) return "unsaved";
+    if (s.where === "browser") return myDecks.list().some((x) => x.id === s.id) ? "browser" : "unsaved";
+    if (!(await loadAccount()).user) return "unsaved"; // logged out: the account's decks aren't here
+    if (!s.id) return "account";
+    try {
+      return (await cloudDecks.list()).some((x) => x.id === s.id) ? "account" : "unsaved";
+    } catch {
+      return "account"; // can't check right now: trust what we knew
+    }
+  };
+
+  /** The deck on screen is saved now: remember where, also for "Your last deck". */
+  const markSaved = (r: Result, where: "account" | "browser", id?: string) => {
+    const next = { ...r, saved: { where, ...(id ? { id } : {}) } };
+    setResult((cur) => (cur && cur.deck === r.deck ? next : cur));
+    lastDeck.set(next);
+    setSaved(next);
+  };
+
+  /** A deck from My decks or "Your last deck": shown as saved only if it really is in My decks. */
   const showSaved = async (r: Result) => {
     setResult(r);
     setLocalSave(null);
     setPhase("result");
     window.scrollTo({ top: 0 });
-    setSaveState((await loadAccount()).user ? "account" : "browser");
+    // it's the deck you looked at last now
+    lastDeck.set(r);
+    setSaved(r);
+    const state = await stillSaved(r);
+    setSaveState(state);
+    if (state === "unsaved" && r.saved) {
+      const rest: Result = { ...r };
+      delete rest.saved;
+      lastDeck.set(rest);
+      setSaved(rest);
+      setResult((cur) => (cur && cur.deck === r.deck ? rest : cur));
+    }
   };
 
   /** Logged out: keep the deck in this browser for now, and move it into the account after logging in. */
@@ -420,8 +457,9 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
       if (acct.user) {
         // logged in but the save didn't go through earlier: try again
         setSaveState("saving");
-        await cloudDecks.save(entry);
+        const res = await cloudDecks.save(entry);
         setSaveState("account");
+        markSaved(result, "account", (res.saved[0] as { id?: string } | undefined)?.id);
         return;
       }
       saveAfterLogin.set([entry.id]);
@@ -509,7 +547,7 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
       try {
         const r = await deck;
         // renamed in My decks: the new name lives with the saved deck, not inside its payload
-        await showSaved({ ...r, deck: h.name ? { ...r.deck, name: h.name } : r.deck, usage: h.usage, model: h.model });
+        await showSaved({ ...r, deck: h.name ? { ...r.deck, name: h.name } : r.deck, usage: h.usage, model: h.model, ...(h.id ? { saved: { where: h.cloud ? "account" : "browser", id: h.id } } : {}) });
       } catch (e) {
         setError(`Couldn't open the deck: ${(e as Error).message}`);
       } finally {

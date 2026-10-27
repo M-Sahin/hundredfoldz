@@ -260,7 +260,7 @@ function DeckCardItem({ deck: d, onChange, onError }: { deck: SavedDeck; onChang
     setBusy(kind);
     onError(null);
     try {
-      handoff.set({ kind, d: await payload(), name: d.name, usage: d.usage, model: d.model });
+      handoff.set({ kind, d: await payload(), name: d.name, usage: d.usage, model: d.model, id: d.id, cloud: !!d.cloud });
       window.location.href = `/?opening=${kind}&name=${encodeURIComponent(d.name)}`;
     } catch (e) {
       onError((e as Error).message);

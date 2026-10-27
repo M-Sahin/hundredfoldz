@@ -374,6 +374,9 @@ export interface Handoff {
   name?: string;
   usage?: Usage;
   model?: string;
+  /** "open": the saved deck's id in My decks, and whether it's in the account */
+  id?: string;
+  cloud?: boolean;
 }
 const HANDOFF = "hundredfold:handoff";
 export const handoff = {

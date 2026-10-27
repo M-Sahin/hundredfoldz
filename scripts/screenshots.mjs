@@ -541,6 +541,33 @@ await run("36-rename-and-reload", { width: 1440, height: 1000 }, async (p) => {
   if (after !== "Renamed for the test") errors.push(`reloading an open deck lost it: "${after}"`);
   if (!/Saved/.test(saved)) errors.push(`after a reload the saved deck isn't marked saved: "${saved}"`);
 });
+// "Your last deck" is the deck you looked at last, and it only says "Saved" when it's in My decks
+await run("36b-last-deck", { width: 1440, height: 1000 }, async (p) => {
+  await toResult(p); // built, not saved
+  await p.goto(base, { waitUntil: "networkidle" });
+  await p.click(".welcome-deck");
+  await p.waitForSelector(".deck h2", { timeout: 15000 });
+  const unsaved = await p.locator("[data-testid=save-deck]").count();
+  const wrongly = await p.locator("[data-testid=saved-state]").count();
+  // save it, open it from My decks under a new name, go home: that's the last deck now
+  await saveDeck(p);
+  await p.goto(`${base}/decks`, { waitUntil: "networkidle" });
+  await p.click("[data-testid=deck-more]");
+  await p.click(".menu-list >> text=Rename");
+  await p.fill(".deckcard-rename input", "Opened from My decks");
+  await p.click(".deckcard-rename button[type=submit]");
+  await p.click("[data-testid=deck-card] .deckcard-art");
+  await p.waitForSelector(".deck h2", { timeout: 30000 });
+  await p.goto(base, { waitUntil: "networkidle" });
+  const last = await p.locator(".welcome-deck").innerText().catch(() => "");
+  await p.click(".welcome-deck");
+  await p.waitForSelector(".deck h2", { timeout: 15000 });
+  const savedNow = await p.locator("[data-testid=saved-state]").innerText({ timeout: 5000 }).catch(() => "");
+  console.log(`last deck: an unsaved build shows "Save deck": ${unsaved > 0 && !wrongly}; after opening from My decks the last deck is "${last.trim()}", "${savedNow.replace(/\n/g, " ")}"`);
+  if (!unsaved || wrongly) errors.push("an unsaved last deck opened as saved");
+  if (!/Opened from My decks/.test(last)) errors.push(`"Your last deck" isn't the deck opened last: "${last}"`);
+  if (!/Saved/.test(savedNow)) errors.push(`a saved last deck isn't marked saved: "${savedNow}"`);
+});
 await run("37-decks-page", { width: 1440, height: 1000 }, async (p) => {
   await toResult(p);
   await saveDeck(p); // saving is a choice now: put it in My decks first
