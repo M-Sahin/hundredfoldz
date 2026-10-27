@@ -670,7 +670,7 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
             </p>
           ) : null}
           <section className="hero">
-            <p className="hero-kicker">Free AI Commander deck builder</p>
+            <p className="hero-kicker">Open-source AI Commander deckbuilder</p>
             <h1>
               Five cards in.
               <br />A hundred out.
