@@ -3853,3 +3853,102 @@ ul.verdict {
   text-transform: none;
   font-weight: 400;
 }
+
+/* ---- the home page's info section (under the builder) -------------------------------- */
+.hero-kicker {
+  margin: 0 0 6px;
+  color: var(--brass-hi);
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.home-info {
+  max-width: 1040px;
+  margin: 72px auto 0;
+  padding: 0 16px;
+}
+.home-info h2 {
+  font-family: var(--font-display);
+  font-size: clamp(24px, 3.2vw, 32px);
+  margin: 0 0 12px;
+}
+.home-info h3 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  margin: 0 0 6px;
+}
+.home-info p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+.home-info-lead {
+  max-width: 760px;
+  font-size: 1.05rem;
+}
+.home-steps {
+  list-style: none;
+  padding: 0;
+  margin: 28px 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 14px;
+}
+.home-step {
+  padding: 18px 20px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(8, 11, 30, 0.4);
+}
+.home-step-n {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-bottom: 10px;
+  border-radius: 50%;
+  background: var(--brass);
+  color: var(--brass-ink);
+  font-weight: 700;
+}
+.home-tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 14px;
+  margin: 0 0 48px;
+}
+.home-tool {
+  display: block;
+  padding: 18px 20px;
+  border-radius: 18px;
+  border: 1px solid var(--line-strong);
+  background: var(--felt);
+  color: inherit;
+  text-decoration: none;
+}
+.home-tool:hover {
+  border-color: var(--brass);
+}
+.home-tool h3 {
+  color: var(--brass-hi);
+}
+.home-faq {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.home-faq-item {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(8, 11, 30, 0.35);
+}
+.home-faq-item summary {
+  cursor: pointer;
+  padding: 14px 18px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.home-faq-item p {
+  padding: 0 18px 16px;
+}

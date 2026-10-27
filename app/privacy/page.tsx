@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { SiteFooter } from "../../components/SiteFooter";
 import { SiteHeader } from "../../components/SiteHeader";
 
-export const metadata: Metadata = { title: "Privacy · Hundredfoldz" };
+export const metadata: Metadata = { title: "Privacy · Hundredfoldz", alternates: { canonical: "/privacy" } };
 
 // What the app stores, in plain words. The operator of a copy should check it matches their setup.
 export default function Page() {

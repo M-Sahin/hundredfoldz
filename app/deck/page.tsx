@@ -11,7 +11,8 @@ const param = async (p: Props) => {
 
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const d = await param(props);
-  return deckMetadata(d, `/deck?d=${d}`);
+  // the whole deck is in the address: fine for sharing, not a page for search results
+  return { ...(await deckMetadata(d, `/deck?d=${d}`)), robots: { index: false, follow: true } };
 }
 
 export default async function Page(props: Props) {

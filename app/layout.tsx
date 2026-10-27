@@ -2,15 +2,34 @@ import type { Metadata, Viewport } from "next";
 import { Alegreya, Alegreya_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { PageErrors } from "../components/PageErrors";
+import { HOME_TITLE, SITE_DESCRIPTION, SITE_NAME, indexable, publicOrigin } from "../lib/server/site";
 import "./globals.css";
 
 const display = Alegreya({ subsets: ["latin"], weight: ["500", "700", "800"], variable: "--font-display", display: "swap" });
 const ui = Alegreya_Sans({ subsets: ["latin"], weight: ["400", "500", "700"], variable: "--font-ui", display: "swap" });
 
-export const metadata: Metadata = {
-  title: "Hundredfoldz: a Commander deck from five cards",
-  description: "Pick five Magic cards. Claude, using the mtg-master skill, builds a complete Commander deck around them in the bracket you choose, and checks every card on Scryfall. Free bracket checker included.",
-};
+// The defaults every page starts from; pages set their own title, description and canonical URL.
+export async function generateMetadata(): Promise<Metadata> {
+  const origin = await publicOrigin();
+  const title = HOME_TITLE;
+  const google = process.env.GOOGLE_SITE_VERIFICATION?.trim();
+  const bing = process.env.BING_SITE_VERIFICATION?.trim();
+  return {
+    metadataBase: new URL(origin),
+    title,
+    description: SITE_DESCRIPTION,
+    applicationName: SITE_NAME,
+    keywords: ["Commander deck builder", "EDH deck builder", "AI deck builder", "MTG deck generator", "Commander bracket checker", "Magic: The Gathering", "booster box EV", "Claude"],
+    authors: [{ name: "Murat Sahin", url: "https://github.com/M-Sahin" }],
+    creator: "Murat Sahin",
+    category: "games",
+    robots: indexable() ? { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 } : { index: false, follow: false },
+    openGraph: { type: "website", siteName: SITE_NAME, locale: "en", title, description: SITE_DESCRIPTION, url: "/", images: [{ url: "/og.jpg", width: 1200, height: 630, alt: `${SITE_NAME}: five cards in, a hundred out` }] },
+    twitter: { card: "summary_large_image", title, description: SITE_DESCRIPTION, images: ["/og.jpg"] },
+    alternates: { types: { "text/plain": "/llms.txt" } },
+    ...(google || bing ? { verification: { ...(google ? { google } : {}), ...(bing ? { other: { "msvalidate.01": bing } } : {}) } } : {}),
+  };
+}
 
 // every page gets a per-request CSP nonce (proxy.ts), so pages render per request
 export const dynamic = "force-dynamic";

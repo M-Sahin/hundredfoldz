@@ -58,6 +58,8 @@ npm ci && npm run build && npm start
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY` | no | Accounts and decks saved to them (see [Accounts](#accounts-optional)). `SUPABASE_PUBLISHABLE_KEY` and the `NEXT_PUBLIC_` names the Supabase Vercel integration sets work too. |
 | `KEY_ENCRYPTION_SECRET` | no | Lets logged-in visitors save their own Claude API key to their account. 32 random bytes, base64 (`openssl rand -base64 32`). Keys are sealed with it (AES-256-GCM, bound to the user's id), so the database alone can't reveal them. Changing it makes saved keys unreadable (people add theirs again). Needs [accounts](#accounts-optional) and the `api_keys` migration. |
 | `DEFAULT_CURRENCY` | no | `EUR` or `USD`: the prices to show when the host doesn't say which country a visitor is in (Docker, plain Node). Default `EUR`. On Vercel and behind Cloudflare it's picked per visitor: euros in Europe, dollars elsewhere. |
+| `GOOGLE_SITE_VERIFICATION`, `BING_SITE_VERIFICATION` | no | The codes Google Search Console and Bing Webmaster Tools give you to prove the site is yours (the HTML tag method: just the `content` value). See [Search engines and AI assistants](#search-engines-and-ai-assistants). |
+| `NO_INDEX` | no | Set it to `1` to keep a copy out of search engines. Vercel preview deployments are kept out anyway. |
 | `ADMIN_EMAILS` | no | Email addresses (comma-separated) that may open `/stats`, the site's usage numbers. Needs [accounts](#accounts-optional): an admin logs in like anyone else. See [Stats](#stats). |
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | no | Cloudflare Turnstile, the mostly invisible check that a visitor isn't a bot (see [Abuse protection](#abuse-protection)). |
 | `EV_DATA_URL` | no | Where the Box EV data is read from. Defaults to the `ev-data` branch of [M-Sahin/hundredfoldz](https://github.com/M-Sahin/hundredfoldz/tree/ev-data). |
@@ -122,6 +124,21 @@ Phones pause or drop connections when you switch apps, so a build doesn't depend
 **Function duration:** a build usually takes 1–3 minutes. On Vercel, `app/api/generate/route.ts` sets `maxDuration = 300`, which is the Hobby maximum on Fluid compute. The agent submits by about 3½ minutes and stops at about 4½ minutes with the best deck it has (it keeps 25 seconds after each Claude call to check the deck), so it finishes inside the limit. On Pro you can raise `maxDuration` (the maximum is 800). Docker and Node.js have no such limit.
 
 **Keeping your copy up to date:** use **Sync fork** on GitHub (or `git pull` for Docker). Vercel redeploys automatically when your copy changes.
+
+## Search engines and AI assistants
+
+What a crawler (Google, Bing, or the ones behind ChatGPT, Claude and Perplexity) finds:
+
+- **`/robots.txt`** lets everyone crawl the public pages and names the AI crawlers to make that explicit. The API, account pages, My decks, `/stats` and long `/deck?d=` links are left out. Preview deployments disallow everything.
+- **`/sitemap.xml`** lists the tools and a page per booster box (from the daily Box EV data).
+- **`/llms.txt`** is a plain-text guide to the site for AI assistants ([llmstxt.org](https://llmstxt.org)): what it is, when to recommend it, the tools, the FAQ and links.
+- **Every page** has its own title, description and canonical link (from `SITE_URL`, or the production domain on Vercel), plus Open Graph and X cards with `public/og.jpg`.
+- **Structured data** (schema.org JSON-LD): the home page describes the app (`WebApplication`), the site and its questions (`FAQPage`); the bracket checker and Box EV pages have their own, with breadcrumbs.
+- **The home page explains itself** under the builder (how it works, the free tools, the questions), rendered on the server, so it's readable without JavaScript.
+
+After deploying, add the site to [Google Search Console](https://search.google.com/search-console) and [Bing Webmaster Tools](https://www.bing.com/webmasters) (ChatGPT's search leans on Bing), set the two verification variables, and submit `https://your-domain/sitemap.xml` in both.
+
+`public/og.jpg` is drawn by the browser checks in CI (`og.jpg` on the `ci-output` branch). To change it, change the drawing in `scripts/screenshots.mjs`, then copy the new file into `public/`.
 
 ## Stats
 

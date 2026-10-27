@@ -804,6 +804,87 @@ await shot("phone-decks", { width: 390, height: 844 }, async (p) => {
   });
 }
 
+// The site's share image (public/og.jpg, 1200×630): drawn in the site's own fonts on the home page,
+// with the finished-deck screenshot from above. Published with the rest; copy it into public/ to update.
+{
+  const page = await browser.newPage({ viewport: { width: 1200, height: 630 } });
+  await page.goto(base, { waitUntil: "networkidle" });
+  const shotB64 = readFileSync(`${out}/readme-result.png`).toString("base64");
+  const logo = readFileSync(new URL("../app/icon.svg", import.meta.url), "utf8");
+  await page.evaluate(
+    ({ shotB64, logo }) => {
+      document.body.innerHTML = `
+        <div style="position:fixed;inset:0;overflow:hidden;background:radial-gradient(900px 600px at 18% 20%, #2b3880 0%, #121733 62%);color:#eef0ff;font-family:var(--font-ui)">
+          <img src="data:image/png;base64,${shotB64}" alt="" style="position:absolute;left:640px;top:70px;width:900px;border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,.55);transform:rotate(-5deg);border:1px solid rgba(190,198,255,.28)">
+          <div style="position:absolute;left:64px;top:64px;width:600px;display:flex;flex-direction:column;height:502px">
+            <div style="display:flex;align-items:center;gap:14px;font-family:var(--font-display);font-weight:800;font-size:34px;color:#f2c766">
+              <span style="width:52px;height:52px;display:block">${logo}</span>Hundredfoldz
+            </div>
+            <div style="font-family:var(--font-display);font-weight:800;font-size:86px;line-height:1.02;margin-top:46px">Five cards in.<br>A hundred out.</div>
+            <div style="font-size:31px;line-height:1.3;margin-top:24px;color:#c9cdf0;max-width:520px">Free AI Commander deck builder for Magic: The Gathering</div>
+            <div style="margin-top:auto;font-size:26px;color:#e2b04a;font-weight:700">hundredfoldz.app</div>
+          </div>
+        </div>`;
+    },
+    { shotB64, logo },
+  );
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: `${out}/og.jpg`, type: "jpeg", quality: 86 });
+  await page.close();
+}
+
+// What search engines and AI assistants get: robots.txt, the sitemap, llms.txt, and the home
+// page's title, description, canonical link, share image and structured data, without JavaScript
+{
+  const ctx = await browser.newContext({ javaScriptEnabled: false });
+  const p = await ctx.newPage();
+  const text = async (path) => {
+    const r = await p.request.get(`${base}${path}`);
+    return { status: r.status(), body: await r.text(), type: r.headers()["content-type"] ?? "" };
+  };
+  const robots = await text("/robots.txt");
+  if (robots.status !== 200 || !/Sitemap: .*\/sitemap\.xml/.test(robots.body) || !/Disallow: \/stats/.test(robots.body) || !/GPTBot/.test(robots.body)) errors.push(`robots.txt: ${robots.status} ${robots.body.slice(0, 200)}`);
+  const sitemap = await text("/sitemap.xml");
+  const urls = [...sitemap.body.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+  if (sitemap.status !== 200 || !urls.some((u) => u.endsWith("/bracket")) || !urls.some((u) => /\/ev\/[\w-]+$/.test(u))) errors.push(`sitemap.xml: ${sitemap.status}, ${urls.length} urls`);
+  const llms = await text("/llms.txt");
+  if (llms.status !== 200 || !/^# Hundredfoldz/.test(llms.body) || !/\/bracket\)/.test(llms.body)) errors.push(`llms.txt: ${llms.status} ${llms.body.slice(0, 120)}`);
+  await p.goto(base, { waitUntil: "load" });
+  const head = await p.evaluate(() => {
+    const meta = (sel) => document.querySelector(sel)?.getAttribute("content") ?? document.querySelector(sel)?.getAttribute("href") ?? null;
+    const ld = [...document.querySelectorAll('script[type="application/ld+json"]')].map((s) => {
+      try {
+        return JSON.parse(s.textContent ?? "");
+      } catch {
+        return "unreadable";
+      }
+    });
+    return {
+      title: document.title,
+      description: meta('meta[name="description"]'),
+      canonical: meta('link[rel="canonical"]'),
+      ogImage: meta('meta[property="og:image"]'),
+      h1: document.querySelector("h1")?.textContent ?? null,
+      faq: document.querySelectorAll(".home-faq-item").length,
+      types: ld.flatMap((x) => (x === "unreadable" ? ["unreadable"] : (x["@graph"] ?? [x]).map((g) => g["@type"]))),
+    };
+  });
+  console.log(`seo: ${urls.length} sitemap urls; home "${head.title}"; canonical ${head.canonical}; og:image ${head.ogImage}; structured data ${head.types.join(", ")}; ${head.faq} questions; llms.txt ${llms.body.length} chars`);
+  if (!/Commander/.test(head.title) || !head.description || !head.canonical || !head.ogImage) errors.push(`home page metadata: ${JSON.stringify(head)}`);
+  if (!head.types.includes("WebApplication") || !head.types.includes("FAQPage") || head.types.includes("unreadable")) errors.push(`home page structured data: ${head.types.join(", ")}`);
+  if (head.faq < 5) errors.push(`the home page's questions aren't in the server-rendered page (${head.faq})`);
+  for (const path of ["/bracket", "/ev"]) {
+    await p.goto(`${base}${path}`, { waitUntil: "load" });
+    const c = await p.evaluate(() => document.querySelector('link[rel="canonical"]')?.getAttribute("href"));
+    if (!c?.endsWith(path)) errors.push(`${path} canonical: ${c}`);
+  }
+  await p.goto(`${base}/stats`, { waitUntil: "load" });
+  const statsRobots = await p.evaluate(() => document.querySelector('meta[name="robots"]')?.getAttribute("content"));
+  if (!/noindex/.test(statsRobots ?? "")) errors.push(`/stats can be indexed (${statsRobots})`);
+  await ctx.close();
+}
+
 await browser.close();
 console.log(errors.length ? `Browser errors:\n${errors.join("\n")}` : "No browser errors");
 if (errors.some((e) => !/net::ERR|Failed to load resource/.test(e))) process.exit(1);

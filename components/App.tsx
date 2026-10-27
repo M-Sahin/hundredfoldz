@@ -48,7 +48,7 @@ const BUDGETS: [Budget, string][] = [
   ["budget", "Budget"],
 ];
 
-export default function App({ opening: openingAtLoad = null }: { opening?: { kind: Handoff["kind"]; name: string } | null } = {}) {
+export default function App({ opening: openingAtLoad = null, info = null }: { opening?: { kind: Handoff["kind"]; name: string } | null; info?: React.ReactNode } = {}) {
   const [config, setConfig] = useState<PublicConfig | null>(null);
   const [mode, setMode] = useState<Mode>("seeds");
   const cur = useCurrency();
@@ -580,6 +580,7 @@ export default function App({ opening: openingAtLoad = null }: { opening?: { kin
             </p>
           ) : null}
           <section className="hero">
+            <p className="hero-kicker">Free AI Commander deck builder</p>
             <h1>
               Five cards in.
               <br />A hundred out.
@@ -808,6 +809,9 @@ export default function App({ opening: openingAtLoad = null }: { opening?: { kin
 
       {/* the bot check for free builds: on every screen, so "Build another version" has a token too */}
       {config?.freeBuilds && !hasOwn ? <div className="human-check">{human.widget}</div> : null}
+
+      {/* what the site is, how it works and the FAQ: on the setup screen, rendered on the server */}
+      {phase === "setup" && !opening ? info : null}
 
       <footer className="foot">
         <p>
