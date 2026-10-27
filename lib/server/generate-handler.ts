@@ -236,7 +236,7 @@ export async function handleGenerate(request: Request, override?: GenerateOverri
       if (e.type === "error" && e.code) failCode = e.code;
       emitRaw(e);
     };
-    await count([`build_start|${access}`, `build_mode|${req.mode ?? "new"}`, ...(demo ? [] : [`build_model|${modelFamily(model)}` as const])]);
+    await count([`build_start|${access}`, `build_mode|${req.mode === "complete" || req.mode === "upgrade" ? req.mode : "new"}`, ...(demo ? [] : [`build_model|${modelFamily(model)}` as const])]);
     try {
       // free builds are told to wrap up sooner: a smaller model at high effort can run long, and a
       // build that hits the hard deadline without a deck is a wasted wait
