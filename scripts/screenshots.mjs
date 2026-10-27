@@ -434,6 +434,30 @@ await run(
   },
   { extraHTTPHeaders: { "x-vercel-ip-country": "US" } },
 );
+// Popular commanders under Surprise me (live sites only, so the config says "live" here), then a tap
+// puts the commander in the first slot, crowned
+await run("35-popular-commanders", { width: 390, height: 844 }, async (p) => {
+  const api = await p.request.get(`${base}/api/trending`);
+  const t = await api.json().catch(() => ({}));
+  console.log(`popular commanders: ${api.status()}; new since ${t.since}: ${(t.fresh ?? []).map((c) => c.name).join(", ")}; all time: ${(t.allTime ?? []).map((c) => c.name).join(", ")}`);
+  if (api.status() !== 200 || !(t.allTime ?? []).length) errors.push(`/api/trending: ${api.status()} ${JSON.stringify(t).slice(0, 200)}`);
+  await p.route("**/api/config", async (route) => {
+    const res = await route.fetch();
+    const c = await res.json();
+    await route.fulfill({ json: { ...c, mode: "live", freeBuilds: { limit: 3, model: "claude-haiku-5-5", modelLabel: "Claude Haiku 5.5" } } });
+  });
+  await p.reload({ waitUntil: "networkidle" });
+  await p.waitForSelector("[data-testid=trending] .trending-card", { timeout: 20000 });
+  await p.locator("[data-testid=trending]").scrollIntoViewIfNeeded();
+  await sweep(p, "popular commanders");
+  await p.screenshot({ path: `${out}/35-popular-commanders-row.png` });
+  const first = await p.locator("[data-testid=trending] .trending-name").first().innerText();
+  await p.locator("[data-testid=trending] .trending-card").first().click();
+  await p.waitForFunction(() => document.querySelectorAll(".flip.is-flipped").length === 1, null, { timeout: 20000 });
+  const crowned = await p.locator(".chip--crown.is-on").count();
+  console.log(`popular commanders: tapped "${first}"; ${crowned ? "crowned as commander" : "NOT crowned"}`);
+  if (!crowned) errors.push(`tapping a popular commander didn't make it the commander (${first})`);
+});
 // the result page: the stats line, the Export menu, the bracket line and the two card layouts
 await run("33-result-menus", { width: 1440, height: 1000 }, async (p) => {
   await p.context().grantPermissions(["clipboard-read", "clipboard-write"]).catch(() => {});

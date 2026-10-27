@@ -25,6 +25,7 @@ import { track } from "../lib/client/track";
 import { useCurrency } from "../lib/client/currency";
 import { budgetHint } from "../lib/shared/currency";
 import { CurrencySwitch } from "./CurrencySwitch";
+import { TrendingCommanders } from "./TrendingCommanders";
 
 type Phase = "setup" | "forging" | "result";
 type Mode = "seeds" | "deck";
@@ -722,6 +723,7 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
                   ))}
                 </div>
               ) : null}
+              {!filledSeeds.length && config && !(config.mode === "demo" && !hasOwn) ? <TrendingCommanders onPick={(name) => void loadSeeds([name], name)} /> : null}
             </section>
           ) : (
             <section className="mat mat--deck" aria-label="Your decklist">
