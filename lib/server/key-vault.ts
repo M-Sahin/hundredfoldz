@@ -7,23 +7,43 @@
 /** Claude API keys look like sk-ant-…; anything else is rejected before it reaches Anthropic. */
 export const KEY_PATTERN = /^sk-ant-[A-Za-z0-9_-]{20,200}$/;
 
-function secretBytes(): Uint8Array | null {
+// The secret: 32 bytes as base64 (what `openssl rand -base64 32` prints) are used as they are.
+// Anything else at least 32 characters long (a hex string, a long passphrase) is hashed into a key,
+// so a secret in another format still works instead of quietly switching saved keys off.
+function secretKind(): "base64" | "hashed" | "missing" | "too-short" {
   const raw = (process.env.KEY_ENCRYPTION_SECRET ?? "").trim();
-  if (!raw) return null;
+  if (!raw) return "missing";
+  if (rawBytes(raw)?.length === 32) return "base64";
+  return raw.length >= 32 ? "hashed" : "too-short";
+}
+
+function rawBytes(raw: string): Uint8Array | null {
   try {
-    const b = Uint8Array.from(atob(raw.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
-    return b.length === 32 ? b : null;
+    return Uint8Array.from(atob(raw.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
   } catch {
     return null;
   }
 }
 
-export const vaultOn = () => !!secretBytes();
+export const vaultOn = () => {
+  const k = secretKind();
+  return k === "base64" || k === "hashed";
+};
+
+/** Why saved keys are off, for the site's owner (never the secret itself). */
+export function vaultProblem(): string | null {
+  const k = secretKind();
+  if (k === "missing") return "KEY_ENCRYPTION_SECRET isn't set on the server (or the site wasn't redeployed after adding it).";
+  if (k === "too-short") return "KEY_ENCRYPTION_SECRET is too short: use 32 random bytes as base64 (openssl rand -base64 32).";
+  return null;
+}
 
 async function aesKey(): Promise<CryptoKey> {
-  const b = secretBytes();
-  if (!b) throw new Error("KEY_ENCRYPTION_SECRET isn't set (32 random bytes, base64).");
-  return crypto.subtle.importKey("raw", b.slice(), "AES-GCM", false, ["encrypt", "decrypt"]);
+  const raw = (process.env.KEY_ENCRYPTION_SECRET ?? "").trim();
+  const kind = secretKind();
+  if (kind !== "base64" && kind !== "hashed") throw new Error(vaultProblem() ?? "KEY_ENCRYPTION_SECRET isn't usable.");
+  const bytes = kind === "base64" ? rawBytes(raw)! : new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`hundredfoldz-key-vault:${raw}`)));
+  return crypto.subtle.importKey("raw", bytes.slice(), "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 
 const b64url = (b: Uint8Array) => btoa(String.fromCharCode(...b)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");

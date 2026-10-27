@@ -84,9 +84,14 @@ export default function AccountPage() {
                   lead={
                     site.keyVault
                       ? "Save your key here once and every device you log in on builds with it, on any model. It's stored encrypted and never sent back to the browser."
-                      : "This site keeps your key in this browser only."
+                      : "Saving a key to your account isn't switched on for this site, so for now your key is kept in this browser."
                   }
                 />
+                {site.keyVaultProblem ? (
+                  <p className="fine" data-testid="key-vault-problem">
+                    For the site&apos;s owner: {site.keyVaultProblem}
+                  </p>
+                ) : null}
               </section>
             ) : null}
             <section className="panel account-danger">
