@@ -20,8 +20,10 @@ import { track } from "../lib/client/track";
 import { useCurrency } from "../lib/client/currency";
 import { PRICE_SOURCE, cardPrice, money } from "../lib/shared/currency";
 import { CurrencySwitch } from "./CurrencySwitch";
+import { ReviewTab, findCard } from "./ReviewTab";
+import type { ComboFinding } from "../lib/shared/findings";
 
-type Tab = "cards" | "list" | "numbers" | "hand";
+type Tab = "cards" | "list" | "numbers" | "review" | "hand";
 type CardsView = "stacks" | "grid";
 
 export function DeckView({
@@ -35,6 +37,9 @@ export function DeckView({
   donationUrl,
   added,
   saveSlot,
+  combos,
+  onAskReview,
+  firstTab = "cards",
 }: {
   deck: Deck;
   validation: Validation;
@@ -48,12 +53,18 @@ export function DeckView({
   added?: string[];
   /** The save button (or "Saved") next to Share; the page decides what it does. */
   saveSlot?: ReactNode;
+  /** Combos Commander Spellbook found in the deck (uploaded decks). */
+  combos?: ComboFinding[];
+  /** "Ask Claude for a review": runs a review with suggested swaps (the page decides how). */
+  onAskReview?: () => void;
+  /** Which tab to open on (uploaded decks open on the review). */
+  firstTab?: Tab;
 }) {
   const [buying, setBuying] = useState(false);
   const site = useSiteConfig();
   const cur = useCurrency();
   const addedSet = useMemo(() => (added?.length ? new Set(added.map((n) => n.toLowerCase())) : undefined), [added]);
-  const [tab, setTab] = useState<Tab>("cards");
+  const [tab, setTab] = useState<Tab>(firstTab);
   // every deck opens in the grid; stacks are a choice for this deck
   const [view, setView] = useState<CardsView>("grid");
   const pickView = (v: CardsView) => setView(v);
@@ -162,12 +173,16 @@ export function DeckView({
 
       <div className="deck-body">
         <aside className="deck-side">
+          {deck.winConditions.length ? (
+            <>
           <h3>How it wins</h3>
           <ol className="wincons">
             {deck.winConditions.map((w) => (
               <li key={w}>{w}</li>
             ))}
           </ol>
+            </>
+          ) : null}
           <BracketCard deck={deck} validation={validation} />
           {deck.shape ? <ShapeCard deck={deck} /> : null}
         </aside>
@@ -179,10 +194,11 @@ export function DeckView({
                 ["cards", "Cards"],
                 ["list", "List"],
                 ["numbers", "Numbers"],
+                ["review", "Review"],
                 ["hand", "Draw a hand"],
               ] as [Tab, string][]
             ).map(([t, label]) => (
-              <button key={t} role="tab" type="button" aria-selected={tab === t} className={`tab ${tab === t ? "is-on" : ""}`} onClick={() => setTab(t)}>
+              <button key={t} role="tab" type="button" aria-selected={tab === t} className={`tab ${tab === t ? "is-on" : ""}`} onClick={() => setTab(t)} data-testid={`tab-${t}`}>
                 {label}
               </button>
             ))}
@@ -205,6 +221,7 @@ export function DeckView({
           {tab === "cards" ? <CardsTab deck={deck} onOpen={setOpen} added={addedSet} view={view} /> : null}
           {tab === "list" ? <ListTab deck={deck} onOpen={setOpen} /> : null}
           {tab === "numbers" ? <NumbersTab deck={deck} openers={openers} /> : null}
+          {tab === "review" ? <ReviewTab deck={deck} validation={validation} openers={openers} combos={combos} onAskReview={onAskReview} onOpen={(name) => setOpen(findCard(deck, name))} /> : null}
           {tab === "hand" ? <HandTab deck={deck} onOpen={setOpen} /> : null}
         </div>
       </div>

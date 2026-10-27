@@ -122,7 +122,15 @@ test("upgrade my deck: one review round of swaps on the user's deck; only revise
       if (Array.isArray(last.content)) for (const r of last.content) if (r.type === "tool_result") seen.results.push(String(r.content));
       // first a swap that names a card the deck doesn't have, then a good one
       const swaps = turn === 1 ? [{ out: "Not In The Deck", in: "Night's Whisper", role: "draw", why: "x" }] : [{ out: cut, in: "Night's Whisper", role: "draw", why: "Cheap card draw" }];
-      return { content: [{ type: "tool_use", id: `r${turn}`, name: "revise_deck", input: { swaps, notes: "One swap." } }], stop_reason: "tool_use" };
+      const review = {
+        strengths: ["Meren recurs a creature every turn."],
+        weaknesses: ["Light on card draw."],
+        synergies: [
+          { cards: ["Meren of Clan Nel Toth", "Viscera Seer"], why: "Sacrifice for experience, then bring it back." },
+          { cards: ["Viscera Seer", "Not A Real Card"], why: "dropped: only one card is in the deck" },
+        ],
+      };
+      return { content: [{ type: "tool_use", id: `r${turn}`, name: "revise_deck", input: { swaps, notes: "One swap.", review } }], stop_reason: "tool_use" };
     };
     const out = await runAgent(
       { mode: "upgrade", seeds: names, commander: "Meren of Clan Nel Toth", basics: full.basics, budget: "any", bracket: 3 },
@@ -132,6 +140,10 @@ test("upgrade my deck: one review round of swaps on the user's deck; only revise
     assert.ok(!seen.tools!.includes("submit_deck") && seen.tools!.includes("revise_deck") && seen.tools!.includes("search_cards"));
     assert.match(seen.results[0], /REJECTED[\s\S]*relative to the user's deck[\s\S]*"Not In The Deck" isn't in the deck/);
     assert.deepEqual(out!.swaps, [{ out: cut, in: "Night's Whisper", role: "draw", why: "Cheap card draw" }]);
+    // Claude's read of the deck comes with it; synergies keep only cards that are in the deck
+    assert.match(seen.prompt!, /And send review/);
+    assert.deepEqual(out!.deck.review?.strengths, ["Meren recurs a creature every turn."]);
+    assert.deepEqual(out!.deck.review?.synergies.map((s) => s.cards), [["Meren of Clan Nel Toth", "Viscera Seer"]]);
     assert.ok(out!.deck.cards.some((c) => c.name === "Night's Whisper"));
     assert.ok(!out!.deck.cards.some((c) => c.name === cut));
     // the basics stay as the user split them (no rebalance in upgrade mode)

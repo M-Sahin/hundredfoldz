@@ -4048,3 +4048,74 @@ ul.verdict {
   color: var(--faint);
   font-size: 0.85rem;
 }
+
+/* ---- the deck's Review tab ---------------------------------------------------------- */
+.review {
+  display: grid;
+  gap: 14px;
+}
+.review h4 {
+  margin: 10px 0 6px;
+  font-size: 1rem;
+}
+.review-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 6px 20px;
+}
+.review-list {
+  margin: 0;
+  padding-left: 1.1em;
+  display: grid;
+  gap: 6px;
+  line-height: 1.45;
+}
+.review-list--good li::marker {
+  color: var(--ok);
+}
+.review-list--bad li::marker {
+  color: var(--bad);
+}
+.review-cards {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  vertical-align: baseline;
+}
+.review-card {
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--felt-hi);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.review-card:hover {
+  border-color: var(--brass);
+}
+.review-synergies {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.review-synergies li {
+  display: grid;
+  gap: 4px;
+}
+.review-synergies li > span:last-child {
+  color: var(--muted);
+}
+.review-ask .btn {
+  margin-top: 10px;
+}
+.deckstart-show {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 10px 0 4px;
+}

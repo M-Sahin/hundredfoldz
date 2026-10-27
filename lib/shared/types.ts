@@ -75,6 +75,15 @@ export interface Deck {
   bracket?: number;
   /** The user's deck-shape limits, when they set any. */
   shape?: DeckShape;
+  /** Claude's review of the deck (asked for on an uploaded or finished deck). */
+  review?: DeckReview;
+}
+
+/** Claude's read of a deck: what works, what doesn't, which cards work together. */
+export interface DeckReview {
+  strengths: string[];
+  weaknesses: string[];
+  synergies: { cards: string[]; why: string }[];
 }
 
 export interface Validation {

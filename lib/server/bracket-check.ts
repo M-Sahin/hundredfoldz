@@ -15,10 +15,10 @@ import { turnstileError, verifyTurnstile } from "./turnstile";
 import { checkCombos, type Combo } from "./combos";
 import * as scry from "./scryfall";
 import { EXTRA_TURN, MLD, pairingProblem, validateDeck } from "./validate";
-import { analyzeDeck, type DeckAnalysis } from "../shared/analysis";
+import { analyzeDeck, detectFunctions, type DeckAnalysis } from "../shared/analysis";
 import { simulateOpeners, type OpenerReport } from "../shared/openers";
 import { parseDecklist } from "../shared/decklist";
-import type { CardInfo, Color, Deck, DeckCard } from "../shared/types";
+import type { CardInfo, Color, Deck, DeckCard, Role, Validation } from "../shared/types";
 import { isBasicLand } from "../shared/types";
 
 export const BRACKET_NAMES: Record<number, string> = { 1: "Exhibition", 2: "Core", 3: "Upgraded", 4: "Optimized", 5: "cEDH" };
@@ -72,6 +72,31 @@ function identityOf(cards: CardInfo[]): Set<Color> {
 }
 
 export async function checkBracket(text: string): Promise<BracketReport> {
+  return (await readDeck(text)).report;
+}
+
+/** The deck as the deck view shows it: each card's role read from its text (no Claude involved). */
+export function asViewedDeck(deck: Deck, bracket: number, notFound: string[] = []): { deck: Deck; validation: Validation } {
+  const role = (c: DeckCard): Role => {
+    if (!c.info) return isBasicLand(c.name) ? "land" : "utility";
+    if (/\bLand\b/.test(c.info.typeLine.split("//")[0])) return "land";
+    const fns = detectFunctions(c.info);
+    for (const f of ["ramp", "draw", "removal", "wipe", "protection", "recursion"] as const) if (fns.has(f)) return f;
+    return /Creature|Planeswalker/.test(c.info.typeLine) ? "synergy" : "utility";
+  };
+  const b = Math.min(4, Math.max(1, bracket));
+  const cmd = deck.commander.info ? deck.commander : null;
+  const viewed: Deck = {
+    ...deck,
+    name: cmd ? `${cmd.name.split(",")[0].split(" // ")[0]}'s deck` : "Your deck",
+    cards: deck.cards.map((c) => ({ ...c, role: role(c) })),
+    bracket: b,
+  };
+  return { deck: viewed, validation: validateDeck(viewed, notFound, [], { bracket: b }) };
+}
+
+/** Read a decklist: the bracket report, and the deck itself with Scryfall data. */
+export async function readDeck(text: string): Promise<{ report: BracketReport; deck: Deck; notFound: string[] }> {
   const parsed = parseDecklist(text);
   const names = [...new Set([...parsed.commanders, ...parsed.commanderGuess, ...parsed.cards.map((c) => c.name)])].slice(0, 260);
   if (!names.length) throw new Error("Paste a decklist: one card per line, like \"1 Sol Ring\".");
@@ -127,7 +152,7 @@ export async function checkBracket(text: string): Promise<BracketReport> {
     const v = validateDeck(deck, notFound, []);
     problems.push(...v.errors.filter((e) => !/Game Changers/.test(e) && !/was not found on Scryfall/.test(e)));
   } else problems.push("No commander found. Put it under a \"Commander\" heading (or first, set apart by an empty line) to check legality and color identity.");
-  return {
+  const report: BracketReport = {
     bracket,
     name: BRACKET_NAMES[bracket],
     turns: TURNS[bracket],
@@ -145,6 +170,7 @@ export async function checkBracket(text: string): Promise<BracketReport> {
     analysis: cmdCards.length && total >= 60 ? analyzeDeck(deck) : null,
     openers: cmdCards.length && total >= 90 ? simulateOpeners(deck, { games: 3000 }) : null,
   };
+  return { report, deck, notFound };
 }
 
 export async function handleBracketCheck(request: Request): Promise<Response> {
@@ -156,6 +182,11 @@ export async function handleBracketCheck(request: Request): Promise<Response> {
   if (!human.ok) return turnstileError(human);
   const text = typeof body?.list === "string" ? body.list.slice(0, 50_000) : "";
   try {
+    // withDeck: the deck too, for "Show my deck" (one bot check, one Scryfall lookup)
+    if (body?.withDeck === true) {
+      const { report, deck, notFound } = await readDeck(text);
+      return Response.json(report.commanders.length ? { ...report, view: asViewedDeck(deck, report.bracket, notFound) } : report);
+    }
     return Response.json(await checkBracket(text));
   } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 400 });

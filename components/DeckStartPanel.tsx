@@ -3,6 +3,7 @@
 // Hundredfoldz should complete it; if it's complete, offer upgrade suggestions.
 import { useState } from "react";
 import type { BracketReport } from "../lib/server/bracket-check";
+import type { Deck, Validation } from "../lib/shared/types";
 import { isBasicLand } from "../lib/shared/types";
 import { useHumanCheck } from "./useHumanCheck";
 
@@ -14,12 +15,28 @@ export interface StartDeck {
   bracket: number;
 }
 
-export function DeckStartPanel({ onComplete, onUpgrade, onRead, blocked }: { onComplete: (d: StartDeck) => void; onUpgrade?: (d: StartDeck) => void; onRead?: (r: BracketReport) => void; blocked?: string }) {
+/** The bracket report, plus the deck as the deck view shows it (when a commander was found). */
+export type ReadReport = BracketReport & { view?: { deck: Deck; validation: Validation } };
+
+export function DeckStartPanel({
+  onComplete,
+  onUpgrade,
+  onRead,
+  onShow,
+  blocked,
+}: {
+  onComplete: (d: StartDeck) => void;
+  onUpgrade?: (d: StartDeck) => void;
+  onRead?: (r: BracketReport) => void;
+  /** "Show my deck": open it in the deck view as it is, with the free analysis. */
+  onShow?: (r: ReadReport) => void;
+  blocked?: string;
+}) {
   const [open, setOpen] = useState(true);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [report, setReport] = useState<BracketReport | null>(null);
+  const [report, setReport] = useState<ReadReport | null>(null);
   const [declined, setDeclined] = useState(false);
   const human = useHumanCheck("bracket");
 
@@ -30,7 +47,7 @@ export function DeckStartPanel({ onComplete, onUpgrade, onRead, blocked }: { onC
     setDeclined(false);
     try {
       const turnstile = await human.take();
-      const r = await fetch("/api/bracket", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ list, turnstile }) });
+      const r = await fetch("/api/bracket", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ list, turnstile, withDeck: !!onShow }) });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error ?? "Couldn't read that list.");
       setReport(j);
@@ -90,6 +107,14 @@ export function DeckStartPanel({ onComplete, onUpgrade, onRead, blocked }: { onC
             )}
             {report.notFound.length ? ` Not found on Scryfall: ${report.notFound.join(", ")}.` : ""}
           </p>
+          {report.view && onShow ? (
+            <div className="deckstart-show">
+              <button type="button" className="btn btn--brass" onClick={() => onShow(report)} data-testid="show-deck">
+                Show my deck and its review
+              </button>
+              <span className="opt-hint">Free, no key needed: every card, the numbers, and what&apos;s strong and weak about it.</span>
+            </div>
+          ) : null}
           {report.commanders.length && missing > 0 && !declined ? (
             <div className="deckstart-ask">
               <p>

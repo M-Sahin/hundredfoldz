@@ -14,6 +14,7 @@ import { bracketInfo } from "../shared/bracket";
 import type { CardInfo, Deck, GenerateRequest, Role, StreamEvent, Swap, Usage, Validation } from "../shared/types";
 import { ROLES, isBasicLand, nameKey } from "../shared/types";
 import { cardPrice, money, type Currency } from "../shared/currency";
+import type { DeckReview } from "../shared/types";
 
 export interface AgentOptions {
   model: string;
@@ -322,6 +323,7 @@ export async function runAgent(req: GenerateRequest, opts: AgentOptions): Promis
   let nudged = false;
   let truncated = 0;
   let reviewing = false; // a legal deck is waiting for its review swaps
+  let deckReview: DeckReview | undefined; // upgrading: Claude's read of the user's deck
   let reviewNote: string | undefined;
   let reviewBase: Checked | null = null; // the accepted deck under review
   let best: Checked | null = null; // best deck so far (legal first, then fewest problems)
@@ -460,6 +462,7 @@ export async function runAgent(req: GenerateRequest, opts: AgentOptions): Promis
           continue;
         }
         revises++;
+        if (upgrading) deckReview = cleanReview(x.input?.review) ?? deckReview;
         const swaps: Swap[] = Array.isArray(x.input?.swaps) ? x.input.swaps.slice(0, 10) : [];
         if (!swaps.length) {
           emit({ type: "tool_result", id: x.id, summary: "kept as is", ok: true });
@@ -548,7 +551,7 @@ export async function runAgent(req: GenerateRequest, opts: AgentOptions): Promis
         done = true;
       }
     }
-    if (done && lastDeck) return lastDeck;
+    if (done && lastDeck) return withReview(lastDeck, deckReview);
 
     const blocks = uses.map((x) => results.get(x.id));
     if (late && blocks.length) {
@@ -557,7 +560,7 @@ export async function runAgent(req: GenerateRequest, opts: AgentOptions): Promis
     }
     messages.push({ role: "user", content: blocks });
   }
-  if (lastDeck) return lastDeck;
+  if (lastDeck) return withReview(lastDeck, deckReview);
   // for the server log (Vercel's logs): why this build ended without a deck
   console.warn(`build ended without a deck: ${why}; ${turns} turns, ${Math.round((Date.now() - started) / 1000)} s, ${submits} submits, model ${opts.model}, engine ${engine.name}${engine.effort ? `, effort ${engine.effort}` : ""}`);
   emit({ type: "error", message: "Claude didn't finish a deck in time. Try again; it usually works on a second run.", code: "no_deck" });
@@ -601,6 +604,28 @@ function upgradeReport(c: Checked): string {
   if (issues.length) parts.push(`Rule and bracket problems to fix: ${issues.join(" ")}`);
   if (c.validation.warnings.length) parts.push(`Warnings: ${c.validation.warnings.join(" ")}`);
   return parts.join("\n");
+}
+
+/** Claude's review, trimmed to what the page shows (strings only, sizes capped). */
+export function cleanReview(raw: unknown): DeckReview | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const r = raw as Record<string, unknown>;
+  const lines = (v: unknown) => (Array.isArray(v) ? v.filter((s): s is string => typeof s === "string" && !!s.trim()).map((s) => untangleText(s, []).strategy.slice(0, 300)).slice(0, 5) : []);
+  const synergies = (Array.isArray(r.synergies) ? r.synergies : [])
+    .map((s: any) => ({ cards: (Array.isArray(s?.cards) ? s.cards : []).filter((c: unknown): c is string => typeof c === "string" && !!c.trim()).map((c: string) => c.trim().slice(0, 150)).slice(0, 4), why: typeof s?.why === "string" ? s.why.trim().slice(0, 300) : "" }))
+    .filter((s) => s.cards.length >= 2 && s.why)
+    .slice(0, 6);
+  const out = { strengths: lines(r.strengths), weaknesses: lines(r.weaknesses), synergies };
+  return out.strengths.length || out.weaknesses.length || out.synergies.length ? out : undefined;
+}
+
+/** The review on the returned deck, with synergies only between cards that are in it. */
+function withReview(result: AgentResult, review: DeckReview | undefined): AgentResult {
+  if (!review) return result;
+  const d = result.deck;
+  const names = new Set([d.commander, ...(d.partner ? [d.partner] : []), ...d.cards].flatMap((c) => [c.name.toLowerCase(), c.name.toLowerCase().split(" // ")[0]]));
+  const synergies = review.synergies.map((s) => ({ ...s, cards: s.cards.filter((c) => names.has(c.toLowerCase())) })).filter((s) => s.cards.length >= 2);
+  return { ...result, deck: { ...d, review: { ...review, synergies } } };
 }
 
 function cleanSwap(s: Swap): Swap {

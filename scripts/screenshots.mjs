@@ -305,6 +305,30 @@ await run("22-upgrade-my-deck", { width: 1440, height: 1000 }, async (p) => {
   if (sent?.mode !== "upgrade" || !/Judith/.test(sent?.commander ?? "")) errors.push(`upgrade request looked wrong: ${JSON.stringify(sent)?.slice(0, 200)}`);
   if (swaps.length !== 1 || marked !== 1) errors.push(`upgrade view: ${swaps.length} swaps, ${marked} marked New`);
 });
+// "Show my deck": an uploaded list opens in the deck view, on its Review tab, with the free analysis
+// and the offer to have Claude review it (no key needed for the first part)
+for (const [name, viewport] of [["22b-show-my-deck", { width: 1440, height: 1000 }], ["22c-show-my-deck-phone", { width: 360, height: 740 }]]) {
+  await run(name, viewport, async (p) => {
+    await p.click("[data-testid=mode-deck]");
+    await p.fill("[data-testid=deck-list]", readFileSync("evals/sample-decks/judith-aristocrats--v2--1.txt", "utf8"));
+    await p.click("text=Read my deck");
+    await p.waitForSelector("[data-testid=show-deck]", { timeout: 60000 });
+    await p.click("[data-testid=show-deck]");
+    await p.waitForSelector("[data-testid=review-tab]", { timeout: 15000 });
+    const title = await p.locator(".deck h2").first().innerText();
+    const strong = await p.locator(".review-list--good li").count();
+    const weak = await p.locator(".review-list--bad li").count();
+    const ask = await p.locator("[data-testid=ask-review]").count();
+    const roles = await p.locator("[data-testid=tab-cards]").click().then(() => p.locator(".role-title").allInnerTexts()).catch(() => []);
+    await p.click("[data-testid=tab-review]");
+    const sideways = await p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    console.log(`show my deck (${viewport.width}px): "${title}"; ${strong} strong, ${weak} weak points; Claude review offered: ${ask > 0}; groups: ${roles.slice(0, 6).join(" | ").replace(/\n/g, " ")}`);
+    if (!/Judith/.test(title)) errors.push(`show my deck: title "${title}"`);
+    if (strong + weak < 3) errors.push(`show my deck: only ${strong + weak} findings`);
+    if (!ask) errors.push("show my deck: no offer of a Claude review for a complete deck");
+    if (sideways > 1) errors.push(`show my deck on a phone scrolls sideways (${sideways}px)`);
+  });
+}
 // Box EV: the list (real data from the ev-data branch), one box with a price, the phone layout
 let evFirst = "";
 await run("23-ev-index", { width: 1440, height: 1000 }, async (p) => {

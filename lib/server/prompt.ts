@@ -244,6 +244,27 @@ export const REVISE_TOOL = {
       },
       strategy: { type: "string", description: "Updated strategy, only if the swaps change it" },
       notes: { type: "string", description: "One sentence on what the review changed" },
+      review: {
+        type: "object",
+        description: "Upgrading a user's deck only: your read of the deck as they sent it, for them to see",
+        properties: {
+          strengths: { type: "array", maxItems: 5, items: { type: "string" }, description: "What works, one plain sentence each" },
+          weaknesses: { type: "array", maxItems: 5, items: { type: "string" }, description: "What holds it back, one plain sentence each" },
+          synergies: {
+            type: "array",
+            maxItems: 6,
+            items: {
+              type: "object",
+              properties: {
+                cards: { type: "array", maxItems: 4, items: { type: "string" }, description: "Exact names of 2 to 4 cards in the deck" },
+                why: { type: "string", description: "How they work together, one sentence" },
+              },
+              required: ["cards", "why"],
+            },
+          },
+        },
+        required: ["strengths", "weaknesses", "synergies"],
+      },
     },
     required: ["swaps"],
   },
@@ -266,6 +287,7 @@ export function upgradePrompt(req: GenerateRequest, deckList: string[], report: 
     "Fix what the server's analysis flags first (missing ramp, draw, removal or lands; mana that arrives late; cards above the bracket), then make the deck's plan stronger.",
     "When you're done, call revise_deck once with up to 10 swaps, each with a short why the user will read. Fewer swaps are fine if the deck is already strong; an empty list keeps it as it is.",
     "Also send strategy: two or three plain sentences for the user on how the deck plays and wins, with your swaps in it. No em dashes, no slogans.",
+    "And send review, your read of the deck as the user sent it: up to 5 strengths, up to 5 weaknesses (what your swaps fix belongs here), and up to 6 synergies (2 to 4 cards from the deck that work together, and how). Plain sentences, specific cards, no em dashes.",
     "",
     "The deck:",
     ...deckList,

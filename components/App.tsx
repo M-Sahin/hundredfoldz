@@ -1,7 +1,8 @@
 "use client";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { BRACKETS, type BracketNumber } from "../lib/shared/bracket";
-import { DeckStartPanel, splitBasics, type StartDeck } from "./DeckStartPanel";
+import { DeckStartPanel, splitBasics, type ReadReport, type StartDeck } from "./DeckStartPanel";
+import type { ComboFinding } from "../lib/shared/findings";
 import { MANA_COLORS, deckSeeds } from "../lib/shared/deck-utils";
 import type { Budget, Color, Deck, GenerateRequest, StreamEvent, Swap, Usage, Validation } from "../lib/shared/types";
 import { cardByName, freeBuilds, generate, getConfig, handoff, type Handoff, myDecks, randomCard, resolveDeck, runningBuild, saveAfterLogin, stopBuild, storage, type FreeBuilds, type PublicConfig, type SavedDeck } from "../lib/client/api";
@@ -40,6 +41,8 @@ interface Result {
   swaps?: Swap[];
   /** Where this deck is saved in My decks, if it is (checked again when it's shown later). */
   saved?: { where: "account" | "browser"; id?: string };
+  /** Shown from an uploaded decklist (not built): what a Claude review would start from, and its combos. */
+  uploaded?: { start: StartDeck | null; combos: ComboFinding[] };
 }
 
 const lastDeck = storage<Result>("hundredfold:last-deck");
@@ -266,6 +269,31 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
   };
 
   /** "Complete my deck" (under 100 cards) or "Suggest upgrades" (a full deck). */
+  /** "Show my deck": the uploaded deck in the deck view, as it is, opened on its review. */
+  const showUploaded = (r: ReadReport) => {
+    if (!r.view) return;
+    const full = r.total === 100 && r.commanders.length > 0;
+    const got: Result = {
+      deck: {
+        ...r.view.deck,
+        strategy: `Your deck as you uploaded it: ${r.total} cards, fits Bracket ${r.bracket} (${r.name}). The Review tab has what's strong and weak${full ? ", and Claude can review it and suggest upgrades" : ""}.`,
+      },
+      validation: r.view.validation,
+      uploaded: {
+        start: full ? { commander: r.commanders[0], partner: r.commanders[1], cards: r.cards, total: r.total, bracket: r.bracket } : null,
+        combos: [...r.combos.early, ...r.combos.other].map((c) => ({ cards: c.cards, results: c.results, bracketTag: c.bracketTag, url: c.url })),
+      },
+    };
+    setResult(got);
+    lastDeck.set(got);
+    setSaved(got);
+    setLocalSave(null);
+    setSaveState("unsaved");
+    setError(null);
+    setPhase("result");
+    window.scrollTo({ top: 0 });
+  };
+
   const fromDeck = (kind: "complete" | "upgrade") => (d: StartDeck) => {
     const { names, basics } = splitBasics(d.cards);
     start({
@@ -733,6 +761,7 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
                 onRead={(r) => {
                   if (r.bracket >= 1 && r.bracket <= 4) setBracket(r.bracket as BracketNumber);
                 }}
+                onShow={showUploaded}
                 blocked={shapeError ? "Fix the deck shape first." : needCode ? "Enter the access code first." : undefined}
               />
             </section>
@@ -847,6 +876,9 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
             deck={result.deck}
             validation={result.validation}
             added={result.swaps?.map((s) => s.in)}
+            combos={result.uploaded?.combos}
+            firstTab={result.uploaded || result.deck.review ? "review" : "cards"}
+            onAskReview={result.uploaded?.start && !result.deck.review ? () => fromDeck("upgrade")(result.uploaded!.start!) : undefined}
             onRestart={restart}
             onRebuild={ready ? build : undefined}
             spend={result.model ? (result.free ? `Free build with ${modelInfo(result.model)?.label ?? result.model}` : result.usage ? `Built with ${modelInfo(result.model)?.label ?? result.model}: ${spendText(result.usage, result.model)}` : undefined) : undefined}
