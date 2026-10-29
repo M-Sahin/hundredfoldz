@@ -776,20 +776,6 @@ await run("7-mobile-setup", { width: 390, height: 844 }, async (p) => {
   if (overflow > 1) errors.push(`setup page scrolls sideways on a phone (${overflow}px)`);
 });
 await run("8-mobile-result", { width: 390, height: 844 }, toResult);
-// issue #5: a card opened on a phone starts at the top (the card image), not at the shop links
-await run("8b-mobile-card-view", { width: 390, height: 844 }, async (p) => {
-  await toResult(p);
-  await p.locator(".role-grid .tile button").nth(5).click();
-  await p.waitForSelector("dialog.modal[open] .modal-card", { timeout: 10000 });
-  await p.waitForTimeout(2000); // the shop prices load in meanwhile
-  const at = await p.evaluate(() => {
-    const d = document.querySelector("dialog.modal[open]");
-    const img = d?.querySelector(".modal-card")?.getBoundingClientRect();
-    return { scrollTop: d?.scrollTop ?? -1, imgTop: img ? Math.round(img.top) : null, focused: document.activeElement?.getAttribute("data-testid") ?? document.activeElement?.tagName };
-  });
-  console.log(`card view on a phone: scrolled ${at.scrollTop}px, card image at ${at.imgTop}px, focus on ${at.focused}`);
-  if (at.scrollTop > 0 || at.imgTop == null || at.imgTop < 0 || at.imgTop > 300) errors.push(`the card view didn't open at its top: ${JSON.stringify(at)}`);
-});
 
 // README pictures: whole screens at a fixed size (not full-page, so the page's fixed background
 // covers them), published with the rest to the ci-output branch as readme-*.png

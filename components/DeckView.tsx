@@ -578,12 +578,6 @@ export function CardModal({ card, onClose }: { card: DeckCard; onClose: () => vo
   useEffect(() => {
     const d = ref.current;
     if (d && !d.open) d.showModal?.();
-    // always start at the top of the card (the browser would otherwise scroll to the first link or
-    // button it focuses, the shop links or "Open on Scryfall" at the bottom)
-    if (d) {
-      d.scrollTop = 0;
-      requestAnimationFrame(() => (d.scrollTop = 0));
-    }
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -593,10 +587,6 @@ export function CardModal({ card, onClose }: { card: DeckCard; onClose: () => vo
   const own = cardPrice(i, cur);
   return (
     <dialog ref={ref} className="modal" onClose={onClose} onClick={(e) => e.target === ref.current && onClose()} aria-label={card.name}>
-      {/* the first thing to focus, at the top: opening the card doesn't jump to its bottom */}
-      <button type="button" className="modal-x" onClick={onClose} aria-label="Close" autoFocus data-testid="card-close">
-        ×
-      </button>
       <div className="modal-inner">
         <CardFace card={i} name={card.name} tilt className="modal-card" loading="eager" />
         <div className="modal-text">
