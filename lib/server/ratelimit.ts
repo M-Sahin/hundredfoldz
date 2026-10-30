@@ -116,6 +116,9 @@ export const LIMITS = {
   autocomplete: { kind: "autocomplete", max: 900 },
   /** the deck workshop's card search (Scryfall allows 2 searches a second for the whole site) */
   search: { kind: "search", max: 300 },
+  /** the workshop's card picks, on the visitor's own key: per key, and per address */
+  coachKey: { kind: "coach-key", max: 120 },
+  coachIp: { kind: "coach-ip", max: 240 },
   named: { kind: "named", max: 300 },
   random: { kind: "random", max: 120 },
   resolve: { kind: "resolve", max: 120 },

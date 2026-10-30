@@ -12,6 +12,10 @@ import { CardModal, HandTab, NumbersTab } from "./DeckView";
 import { TrendingCommanders } from "./TrendingCommanders";
 import { ShareButton } from "./ShareSheet";
 import { Menu } from "./Menu";
+import { CardPicks, pickSlots } from "./CardPicks";
+import { KeySheet } from "./BuildAccess";
+import type { KeyState } from "./KeyPanel";
+import { COACH_SLOTS, type CoachSlot } from "../lib/shared/coach";
 import { analyzeDeck, guessRole } from "../lib/shared/analysis";
 import { validateDeck } from "../lib/shared/validate";
 import { simulateOpeners } from "../lib/shared/openers";
@@ -43,9 +47,12 @@ import {
   type Check,
   type WorkshopDeck,
 } from "../lib/shared/workshop";
-import { cardByName, handoff, randomCard, resolveDeck, searchCards } from "../lib/client/api";
+import { cardByName, freeDeals, handoff, randomCard, resolveDeck, searchCards, type FreeDeals } from "../lib/client/api";
+import { useHumanCheck } from "./useHumanCheck";
 import { saveToMyDecks, workshopDraft } from "../lib/client/workshop";
 import { useCurrency } from "../lib/client/currency";
+import { useSiteConfig } from "../lib/client/site-config";
+import { useAccount } from "../lib/client/account";
 import { track } from "../lib/client/track";
 
 type Pane = "search" | "deck" | "checks";
@@ -97,6 +104,19 @@ export default function Workshop() {
   const [toast, setToast] = useState<Toast | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<"account" | "browser" | "saving" | null>(null);
+  // card picks: the visitor's own key (the key sheet loads a remembered one), the slot being dealt,
+  // and the cards passed on per slot this visit
+  const [key, setKey] = useState<KeyState>({ key: "", model: "" });
+  const [keySheet, setKeySheet] = useState(false);
+  const [dealing, setDealing] = useState<{ slot: CoachSlot; note?: string } | null>(null);
+  const [passed, setPassed] = useState<Partial<Record<CoachSlot, string[]>>>({});
+  const site = useSiteConfig();
+  const acct = useAccount();
+  // without a key: the site's free deals, if it gives them out (a bot check per deal)
+  const [deals, setDeals] = useState<FreeDeals | null>(null);
+  const human = useHumanCheck("deal");
+  const refreshDeals = () => void freeDeals().then(setDeals);
+  useEffect(refreshDeals, []);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const cur = useCurrency();
 
@@ -302,6 +322,8 @@ export default function Workshop() {
 
   const identity = workshopIdentity(ws);
   const step = claudeStep(ws);
+  const ownKey = !!key.key || !!key.saved;
+  const freeLeft = deals?.enabled ? (deals.remaining ?? 0) : 0;
   const cost = price(deck, cur);
 
   return (
@@ -437,6 +459,43 @@ export default function Workshop() {
                 ))}
               </ul>
             </section>
+            <section className="panel ws-deal" aria-labelledby="ws-deal-h" data-testid="ws-deal">
+              <h3 id="ws-deal-h">Stuck? Claude deals you 3</h3>
+              <p className="panel-sub">Three cards that fit {ws.commander.name.split(",")[0]}&apos;s plan, each checked on Scryfall. Keep one, or deal again.</p>
+              {!ownKey && !freeLeft ? (
+                <>
+                  <p className="note">
+                    {deals?.enabled
+                      ? deals.blocked
+                        ? "Today's free deals are used up here. Add your own Claude API key for more, or come back tomorrow."
+                        : `You've used today's ${deals.limit} free deals. Add your own Claude API key for more, or come back tomorrow.`
+                      : "Card picks use your own Claude API key, on Claude Haiku. Everything else in the workshop is free."}
+                  </p>
+                  <button type="button" className="btn" onClick={() => setKeySheet(true)} data-testid="ws-add-key">
+                    Add your Claude key
+                  </button>
+                </>
+              ) : total >= 100 ? (
+                <p className="note">The deck has 100 cards. Cut one to get picks, or ask for a review.</p>
+              ) : (
+                <div className="ws-deal-slots" role="group" aria-label="Deal me 3 for">
+                  {pickSlots(checks).map((s, i) => (
+                    <button key={s.slot} type="button" className={`btn btn--small ${i === 0 ? "btn--brass" : ""}`} onClick={() => setDealing(s)} data-testid={`ws-deal-${s.slot}`}>
+                      {i === 0 ? `Deal me 3: ${COACH_SLOTS[s.slot].label.toLowerCase()}` : COACH_SLOTS[s.slot].label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {!ownKey && freeLeft && total < 100 ? (
+                <p className="note" data-testid="ws-free-deals">
+                  {freeLeft} free deal{freeLeft === 1 ? "" : "s"} left today.{" "}
+                  <button type="button" className="link" onClick={() => setKeySheet(true)}>
+                    Add your Claude key
+                  </button>{" "}
+                  for as many as you like.
+                </p>
+              ) : null}
+            </section>
             <section className="panel ws-handover">
               <h3>{step.kind === "complete" ? "Want Claude to finish it?" : "Want a second opinion?"}</h3>
               <p className="panel-sub">
@@ -468,7 +527,37 @@ export default function Workshop() {
         </nav>
 
         {toastEl}
+        {/* the bot check for free deals: outside the panes, which phones hide */}
+        {!ownKey && freeLeft ? human.widget : null}
       </main>
+      {dealing ? (
+        <CardPicks
+          ws={ws}
+          slot={dealing.slot}
+          note={pickSlots(checks).find((s) => s.slot === dealing.slot)?.note}
+          auth={ownKey ? { apiKey: key.key || undefined, savedKey: !key.key && !!key.saved } : { free: true }}
+          getTurnstile={human.take}
+          freeLeft={ownKey ? undefined : (deals?.remaining ?? 0)}
+          onDealt={refreshDeals}
+          passed={passed[dealing.slot] ?? []}
+          onPass={(names) => setPassed((p) => ({ ...p, [dealing.slot]: [...new Set([...(p[dealing.slot] ?? []), ...names])] }))}
+          onKeep={add}
+          onNeedKey={() => {
+            setDealing(null);
+            setKeySheet(true);
+          }}
+          onClose={() => setDealing(null)}
+        />
+      ) : null}
+      <KeySheet
+        open={keySheet}
+        lead="Card picks use your own Claude API key. You pay Anthropic directly; picks run on Claude Haiku."
+        value={key}
+        onChange={setKey}
+        onClose={() => setKeySheet(false)}
+        onDone={() => setKeySheet(false)}
+        canSave={!!site?.keyVault && !!acct.user}
+      />
       {open ? (
         <CardModal
           card={open}

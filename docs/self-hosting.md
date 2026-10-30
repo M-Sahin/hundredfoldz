@@ -48,7 +48,10 @@ npm ci && npm run build && npm start
 | `FREE_MODEL`, `FREE_EFFORT` | no | The model and effort free builds use. Default `claude-haiku-5-5` at `high`. Visitors who want Sonnet or Opus use their own key. |
 | `FREE_BUILDS_PER_IP_PER_DAY` | no | Free builds per IP address per day (default 10), so clearing cookies doesn't give anyone more. |
 | `FREE_BUILDS_PER_DAY` | no | Free builds for the whole site per day (default 300). |
-| `FREE_TOKENS_PER_DAY` | no | Tokens all free builds together may use per day (default 150,000,000, counting input, output and cache). With `FREE_BUILDS_PER_DAY` this caps what free builds can cost you. |
+| `FREE_TOKENS_PER_DAY` | no | Tokens all free builds and free deals together may use per day (default 150,000,000, counting input, output and cache). With `FREE_BUILDS_PER_DAY` and `FREE_DEALS_PER_DAY` this caps what they can cost you. |
+| `FREE_DEALS` | no | With a server key: this many free card picks ("Deal me 3" in the deck workshop) per visitor per day, e.g. `5`. Off unless set. See [Free card picks](#free-card-picks). |
+| `FREE_DEALS_PER_IP_PER_DAY` | no | Free deals per IP address per day (default three times `FREE_DEALS`). |
+| `FREE_DEALS_PER_DAY` | no | Free deals for the whole site per day (default 2,000). |
 | `OWN_KEYS` | no | Visitors' own Claude API keys. Without a server key they're allowed unless you set `0`. With a server key they're off unless you set `1`, so a deployment behind an access code doesn't open up when it updates. |
 | `OWN_KEY_BUILDS_PER_HOUR` | no | Builds per own key per hour (default 20), to protect Scryfall and the server. |
 | `DONATION_URL` | no | An `https://` link (Ko-fi, GitHub Sponsors…) shown in the footer and under each finished deck, e.g. `https://ko-fi.com/yourname`. |
@@ -83,6 +86,15 @@ With `ANTHROPIC_API_KEY` and `FREE_BUILDS=3`, every visitor gets three builds on
 - **Owner builds.** The access code isn't used in this mode. Use your own key in the key sheet like everyone else.
 
 Set a monthly spend limit on the key's workspace in the Claude Console as a last line of defense.
+
+### Free card picks
+
+The deck workshop's "Deal me 3" (Claude deals three cards for a slot of the deck) runs on the visitor's own Claude API key. With `ANTHROPIC_API_KEY` and `FREE_DEALS=5`, visitors without a key get five deals a day on your key instead, always on Claude Haiku 5.5. The workshop says how many are left; after that it asks for the visitor's own key, and visitors with their own key aren't limited by it. Free deals work with or without `FREE_BUILDS`.
+
+- **Counted like free builds,** under their own counts: per browser and per account (per day), per IP address per day (`FREE_DEALS_PER_IP_PER_DAY`) and for the whole site per day (`FREE_DEALS_PER_DAY`). Their tokens go into the same daily budget as free builds (`FREE_TOKENS_PER_DAY`).
+- **Bot check.** With Turnstile on, each free deal needs a fresh token.
+- **Given back when nothing came of it.** A deal that shows no cards doesn't count against the visitor (the address and site counts and the token budget still do). A deal the visitor closes early isn't given back.
+- **Small.** A deal is at most five short Haiku calls with the skill prompt cached, and three Scryfall lookups. The stats page counts free deals and refusals.
 
 ### Own API keys
 

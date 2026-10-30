@@ -4814,3 +4814,200 @@ main.ws {
     flex: 1 1 auto;
   }
 }
+
+/* ---------- the workshop's card picks ("Deal me 3") ---------- */
+.ws-deal {
+  border-color: color-mix(in oklab, var(--brass) 45%, transparent);
+  background: color-mix(in oklab, var(--brass) 7%, transparent);
+}
+.ws-deal .panel-sub {
+  margin-top: 0;
+}
+.ws-deal-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.picks.modal {
+  max-width: min(1000px, 96vw);
+}
+.picks-inner {
+  display: grid;
+  gap: 16px;
+  padding: 24px 26px;
+}
+.picks-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.picks-head > div {
+  flex: 1;
+  min-width: 0;
+}
+.picks-kicker {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.picks-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(24px, 3vw, 30px);
+  line-height: 1.15;
+}
+.picks-close {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.picks-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.pick {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 18px;
+  border: 2px solid var(--line);
+  background: var(--page);
+  animation: deal 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.pick.is-kept {
+  border-color: var(--brass);
+}
+.pick--empty {
+  animation: none;
+  justify-content: center;
+}
+.pick-back {
+  display: block;
+  width: min(100%, 194px);
+  margin: 0 auto;
+  aspect-ratio: 63 / 88;
+  border-radius: var(--radius-card);
+  background:
+    radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--brass) 22%, transparent) 0 18%, transparent 19%),
+    var(--sleeve);
+  box-shadow: inset 0 0 0 3px var(--page), 0 0 0 1px var(--line-strong);
+}
+.pick--empty.is-busy .pick-back {
+  animation: shimmer 1.1s ease-in-out infinite;
+}
+.pick-card {
+  width: min(100%, 194px);
+  align-self: center;
+}
+.pick-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pick-title h3 {
+  margin: 0;
+  font-size: 17px;
+}
+.pick-type {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.pick-why {
+  flex: 1;
+  margin: 0;
+  color: #d4d7f2;
+  font-size: 15px;
+}
+.picks-status {
+  min-height: 1.5em;
+  margin: 0;
+  color: var(--muted);
+}
+.picks-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.picks-steer {
+  flex: 1 1 300px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--page);
+}
+.picks-steer span {
+  color: var(--muted);
+  font-size: 14px;
+  white-space: nowrap;
+}
+.picks-steer input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  outline: none;
+}
+.picks-note {
+  margin: 0;
+}
+@media (max-width: 760px) {
+  .picks-inner {
+    padding: 18px 16px;
+  }
+  .picks-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pick {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    grid-template-areas: "card title" "card type" "card why" "keep keep";
+    column-gap: 12px;
+    row-gap: 4px;
+  }
+  .pick-card {
+    grid-area: card;
+    width: 96px;
+  }
+  .pick-title {
+    grid-area: title;
+  }
+  .pick-type {
+    grid-area: type;
+    margin: 0;
+  }
+  .pick-why {
+    grid-area: why;
+  }
+  .pick .btn {
+    grid-area: keep;
+    margin-top: 6px;
+  }
+  .pick--empty {
+    display: none;
+  }
+  .pick--empty:first-child {
+    display: block;
+  }
+  .pick--empty .pick-back {
+    width: 86px;
+  }
+}
