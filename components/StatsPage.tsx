@@ -180,6 +180,19 @@ function Report({ days, store }: { days: Day[]; store: string }) {
         </section>
 
         <section className="panel stats-panel">
+          <h2>Deck workshop</h2>
+          <Facts
+            rows={[
+              ["Commanders picked", t["workshop|opened"]],
+              ["Decks brought in to edit", t["workshop|from_deck"]],
+              ["Handed to Claude to finish", t["workshop|finish"]],
+              ["Handed to Claude for a review", t["workshop|review"]],
+              ["Saved", t["workshop|saved"]],
+            ]}
+          />
+        </section>
+
+        <section className="panel stats-panel">
           <h2>What was built</h2>
           <Facts
             rows={[

@@ -31,6 +31,23 @@ const saveDeck = async (p) => {
   await p.click("[data-testid=save-deck]");
   await p.waitForSelector("[data-testid=saved-state]", { timeout: 10000 });
 };
+// the deck workshop with a commander, a few cards from the search and the basic lands (real Scryfall)
+const workshopDeck = async (p) => {
+  await p.goto(`${base}/workshop`, { waitUntil: "networkidle" });
+  await p.fill("[aria-label=\"Type a commander's name\"]", "Meren of Clan Nel Toth");
+  await p.waitForSelector(".search-list [role=option]", { timeout: 15000 });
+  await p.keyboard.press("Enter");
+  await p.waitForSelector("[data-testid=ws-total]", { timeout: 15000 });
+  if (await p.locator("[data-testid=ws-tab-search]").isVisible()) await p.click("[data-testid=ws-tab-search]");
+  await p.click("[data-testid=ws-slot-draw]");
+  await p.waitForSelector("[data-testid=ws-results] [data-testid=ws-add]", { timeout: 20000 });
+  for (let i = 0; i < 3; i++) await p.locator("[data-testid=ws-add]:not([disabled])").first().click();
+  if (await p.locator("[data-testid=ws-tab-deck]").isVisible()) await p.click("[data-testid=ws-tab-deck]");
+  await p.click("[data-testid=ws-basics]");
+  await p.waitForFunction(() => Number(document.querySelector("[data-testid=ws-total]")?.textContent) >= 39, null, { timeout: 15000 });
+  const total = await p.textContent("[data-testid=ws-total]");
+  console.log(`workshop: ${total} cards after 3 picks and the basic lands`);
+};
 const toResult = async (p) => {
   await loadSeeds(p);
   await p.click("[data-testid=build]");
@@ -763,6 +780,19 @@ await run("40-phone-sweep", { width: 360, height: 740 }, async (p) => {
     await p.click("[data-testid=deck-more]");
     await p.click("[data-testid=deck-delete]");
   });
+  await step("workshop commander", async () => p.goto(`${base}/workshop`, { waitUntil: "networkidle" }));
+  await step("workshop deck", async () => workshopDeck(p));
+  await step("workshop search", async () => p.click("[data-testid=ws-tab-search]"));
+  await step("workshop checks", async () => p.click("[data-testid=ws-tab-checks]"));
+  await step("workshop numbers", async () => {
+    await p.click("[data-testid=ws-tab-deck]");
+    await p.click("[data-testid=ws-deck-numbers]");
+  });
+  await step("workshop card view", async () => {
+    await p.click("[data-testid=ws-deck-list]");
+    await p.locator(".ws-card-name").first().click();
+  });
+  await p.keyboard.press("Escape");
   await step("bracket checker", async () => p.goto(`${base}/bracket`, { waitUntil: "load" }));
   await step("box EV", async () => p.goto(`${base}/ev`, { waitUntil: "networkidle" }));
   await step("a box", async () => p.goto(`${base}${evFirst || "/ev/dsk-play"}`, { waitUntil: "networkidle" }));
@@ -776,6 +806,11 @@ await run("7-mobile-setup", { width: 390, height: 844 }, async (p) => {
   if (overflow > 1) errors.push(`setup page scrolls sideways on a phone (${overflow}px)`);
 });
 await run("8-mobile-result", { width: 390, height: 844 }, toResult);
+await run("45-workshop", { width: 1440, height: 1000 }, workshopDeck);
+await run("46-workshop-phone", { width: 390, height: 844 }, async (p) => {
+  await workshopDeck(p);
+  await p.click("[data-testid=ws-tab-checks]");
+});
 
 // README pictures: whole screens at a fixed size (not full-page, so the page's fixed background
 // covers them), published with the rest to the ci-output branch as readme-*.png

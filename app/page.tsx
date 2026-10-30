@@ -17,7 +17,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const q = await searchParams;
   // /?view=deck&name=…: the address while a deck is on screen; a reload shows "Opening …" until
   // the browser puts the deck back from this tab's storage
-  const kind = typeof q.opening === "string" && ["open", "rebuild", "upgrade"].includes(q.opening) ? (q.opening as "open" | "rebuild" | "upgrade") : q.view === "deck" ? "open" : null;
+  const kind = typeof q.opening === "string" && ["open", "rebuild", "upgrade", "complete"].includes(q.opening) ? (q.opening as "open" | "rebuild" | "upgrade" | "complete") : q.view === "deck" ? "open" : null;
   const name = typeof q.name === "string" ? q.name.slice(0, 120) : "your deck";
   const o = await publicOrigin();
   return (

@@ -15,7 +15,7 @@ import { turnstileError, verifyTurnstile } from "./turnstile";
 import { checkCombos, type Combo } from "./combos";
 import * as scry from "./scryfall";
 import { EXTRA_TURN, MLD, pairingProblem, validateDeck } from "./validate";
-import { analyzeDeck, detectFunctions, type DeckAnalysis } from "../shared/analysis";
+import { analyzeDeck, guessRole, type DeckAnalysis } from "../shared/analysis";
 import { simulateOpeners, type OpenerReport } from "../shared/openers";
 import { parseDecklist } from "../shared/decklist";
 import type { CardInfo, Color, Deck, DeckCard, Role, Validation } from "../shared/types";
@@ -77,13 +77,7 @@ export async function checkBracket(text: string): Promise<BracketReport> {
 
 /** The deck as the deck view shows it: each card's role read from its text (no Claude involved). */
 export function asViewedDeck(deck: Deck, bracket: number, notFound: string[] = []): { deck: Deck; validation: Validation } {
-  const role = (c: DeckCard): Role => {
-    if (!c.info) return isBasicLand(c.name) ? "land" : "utility";
-    if (/\bLand\b/.test(c.info.typeLine.split("//")[0])) return "land";
-    const fns = detectFunctions(c.info);
-    for (const f of ["ramp", "draw", "removal", "wipe", "protection", "recursion"] as const) if (fns.has(f)) return f;
-    return /Creature|Planeswalker/.test(c.info.typeLine) ? "synergy" : "utility";
-  };
+  const role = (c: DeckCard): Role => (c.info ? guessRole(c.info) : isBasicLand(c.name) ? "land" : "utility");
   const b = Math.min(4, Math.max(1, bracket));
   const cmd = deck.commander.info ? deck.commander : null;
   const viewed: Deck = {

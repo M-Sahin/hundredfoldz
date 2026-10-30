@@ -36,6 +36,8 @@ export const CLIENT_EVENTS = {
   export: ["moxfield", "arena", "txt"],
   buy: ["tcgplayer", "cardkingdom", "cardmarket", "other"],
   share_sheet: [],
+  /** the deck workshop: opened with a commander, a deck brought in to edit, handed to Claude, saved */
+  workshop: ["opened", "from_deck", "finish", "review", "saved"],
   /** an uncaught error in the page (its message is counted separately, cleaned up) */
   client_error: [],
 } as const satisfies Record<string, readonly string[]>;

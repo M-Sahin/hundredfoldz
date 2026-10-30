@@ -6,12 +6,13 @@ import { loadConfig } from "../lib/client/site-config";
 import { AccountButton } from "./AccountButton";
 import { useAccount } from "../lib/client/account";
 
-export type NavKey = "build" | "bracket" | "ev" | "decks" | null;
+export type NavKey = "build" | "workshop" | "bracket" | "ev" | "decks" | null;
 
 const REPO = "https://github.com/M-Sahin/hundredfoldz";
 
 const LINKS: { key: NavKey; href: string; label: string }[] = [
   { key: "build", href: "/", label: "Build a deck" },
+  { key: "workshop", href: "/workshop", label: "Workshop" },
   { key: "bracket", href: "/bracket", label: "Bracket checker" },
   { key: "ev", href: "/ev", label: "Box EV" },
   { key: "decks", href: "/decks", label: "My decks" },

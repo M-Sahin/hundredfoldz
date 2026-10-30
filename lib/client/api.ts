@@ -30,6 +30,25 @@ export async function randomCard(kind: "commander" | "card", id = ""): Promise<C
   return j.card;
 }
 
+export interface CardSearch {
+  q?: string;
+  /** the commander's color identity, e.g. ["B", "G"] */
+  colors: Color[];
+  slot?: string;
+  type?: string;
+  mv?: string;
+}
+
+/** The deck workshop's search: Commander-legal cards in these colors, most played first. */
+export async function searchCards(s: CardSearch, signal?: AbortSignal): Promise<{ total: number; cards: CardInfo[]; error?: string }> {
+  const p = new URLSearchParams({ id: s.colors.join("").toLowerCase() || "c" });
+  for (const k of ["q", "slot", "type", "mv"] as const) if (s[k]) p.set(k, s[k]!);
+  const r = await fetch(`/api/cards/search?${p}`, { signal });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error ?? "Search failed");
+  return j;
+}
+
 async function* ndjson(body: ReadableStream<Uint8Array>): AsyncGenerator<any> {
   const reader = body.getReader();
   const dec = new TextDecoder();
@@ -364,11 +383,12 @@ export const myDecks = {
 };
 
 /**
- * A job handed from the My decks page to the build page: open a saved deck, or start a build from
- * it. Kept for this tab only and read once.
+ * A job handed from one page to another: open a saved deck on the build page, start a build from it
+ * (rebuild, upgrade, or complete a deck from the workshop), or open it in the workshop ("edit").
+ * Kept for this tab only and read once.
  */
 export interface Handoff {
-  kind: "open" | "rebuild" | "upgrade";
+  kind: "open" | "rebuild" | "upgrade" | "complete" | "edit";
   d: string;
   /** the deck's name, for the "Opening …" screen while it loads */
   name?: string;
@@ -385,11 +405,12 @@ export const handoff = {
       sessionStorage.setItem(HANDOFF, JSON.stringify(h));
     } catch {}
   },
-  take(): Handoff | null {
+  /** The waiting job if it's one of `kinds` (the build page's by default). */
+  take(kinds: Handoff["kind"][] = ["open", "rebuild", "upgrade", "complete"]): Handoff | null {
     try {
       const h = JSON.parse(sessionStorage.getItem(HANDOFF) ?? "null") as Handoff | null;
       sessionStorage.removeItem(HANDOFF);
-      return h && typeof h.d === "string" && ["open", "rebuild", "upgrade"].includes(h.kind) ? h : null;
+      return h && typeof h.d === "string" && kinds.includes(h.kind) ? h : null;
     } catch {
       return null;
     }

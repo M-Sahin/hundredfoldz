@@ -256,12 +256,12 @@ function DeckCardItem({ deck: d, onChange, onError }: { deck: SavedDeck; onChang
   }, [d.commander]);
 
   const payload = async () => (d.cloud ? await cloudDecks.payload(d.id) : d.d);
-  const go = async (kind: "open" | "rebuild" | "upgrade") => {
+  const go = async (kind: "open" | "rebuild" | "upgrade" | "edit") => {
     setBusy(kind);
     onError(null);
     try {
       handoff.set({ kind, d: await payload(), name: d.name, usage: d.usage, model: d.model, id: d.id, cloud: !!d.cloud });
-      window.location.href = `/?opening=${kind}&name=${encodeURIComponent(d.name)}`;
+      window.location.href = kind === "edit" ? "/workshop" : `/?opening=${kind}&name=${encodeURIComponent(d.name)}`;
     } catch (e) {
       onError((e as Error).message);
       setBusy(null);
@@ -377,6 +377,7 @@ function DeckCardItem({ deck: d, onChange, onError }: { deck: SavedDeck; onChang
               testId="deck-more"
               items={[
                 { label: "Improve it with Claude (up to 10 swaps)", onClick: () => void go("upgrade"), testId: "deck-upgrade" },
+                { label: "Edit it in the workshop", onClick: () => void go("edit"), testId: "deck-edit" },
                 ...(seeds !== false ? [{ label: "Build again from the same seeds", onClick: () => void go("rebuild"), testId: "deck-rebuild" }] : []),
                 { label: "Rename", onClick: () => setRenaming(d.name) },
                 { label: "Delete", onClick: () => setConfirmDelete(true), testId: "deck-delete" },

@@ -114,6 +114,8 @@ export const LIMITS = {
   bracket: { kind: "bracket", max: 40 },
   cardOffers: { kind: "card-offers", max: 300 },
   autocomplete: { kind: "autocomplete", max: 900 },
+  /** the deck workshop's card search (Scryfall allows 2 searches a second for the whole site) */
+  search: { kind: "search", max: 300 },
   named: { kind: "named", max: 300 },
   random: { kind: "random", max: 120 },
   resolve: { kind: "resolve", max: 120 },

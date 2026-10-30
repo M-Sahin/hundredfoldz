@@ -605,10 +605,11 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
           start({ seeds: s, commander: cmd, budget, theme, bracket: b });
           return;
         }
-        // upgrade: every card stays a candidate, the commander and the plan stay
+        // upgrade: every card stays a candidate, the commander and the plan stay;
+        // complete (a deck from the workshop): every card stays, Claude fills the rest
         const cards = r.deck.cards.map((c) => ({ name: c.name, qty: c.qty }));
         const { names, basics } = splitBasics(cards);
-        start({ mode: "upgrade", seeds: names, basics, commander: r.deck.commander.name, partner: r.deck.partner?.name ?? null, budget, theme, bracket: b });
+        start({ mode: h.kind === "complete" ? "complete" : "upgrade", seeds: names, basics, commander: r.deck.commander.name, partner: r.deck.partner?.name ?? null, budget, theme, bracket: b });
       } catch (e) {
         setError((e as Error).message);
       } finally {
@@ -631,6 +632,13 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
       if (new URLSearchParams(window.location.search).get("view") === "deck") window.history.replaceState(null, "", "/");
     }
   }, [phase, result, saveState, localSave, opening]);
+
+  /** Hand the deck on screen to the workshop, to change it card by card. */
+  const editInWorkshop = async (deck: Deck) => {
+    handoff.set({ kind: "edit", d: await encodeDeck(deck), name: deck.name });
+    track("workshop|from_deck");
+    window.location.href = "/workshop";
+  };
 
   const restart = () => {
     setPhase("setup");
@@ -675,7 +683,7 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
           <div className="opening-banner">
             <span className="spinner" aria-hidden />
             <p>
-              {opening.kind === "open" ? "Opening" : opening.kind === "upgrade" ? "Getting ready to improve" : "Getting ready to build again"} <strong>{opening.name}</strong>…
+              {opening.kind === "open" ? "Opening" : opening.kind === "upgrade" ? "Getting ready to improve" : opening.kind === "complete" ? "Getting ready to finish" : "Getting ready to build again"} <strong>{opening.name}</strong>…
             </p>
           </div>
           <div className="opening-body" aria-hidden>
@@ -704,6 +712,10 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
               <br />A hundred out.
             </h1>
             <p className="hero-sub">Pick five cards you love. Claude builds a 100-card Commander deck around them and checks every card on Scryfall.</p>
+            <p className="hero-new">
+              <span className="ws-new">New</span>
+              Rather build it yourself? <a href="/workshop">Open the deck workshop</a>
+            </p>
           </section>
 
           <div className="modes" role="tablist" aria-label="How to start">
@@ -855,6 +867,15 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
               <a href="/decks">All your decks</a>
             </p>
           ) : null}
+          <a className="ws-promo" href="/workshop" data-testid="workshop-promo">
+            <div className="ws-promo-text">
+              <h2>
+                <span className="ws-new">New</span>Rather build it yourself?
+              </h2>
+              <p>The deck workshop: pick a commander, add every card yourself, and watch the lands, ramp, draw and removal add up as you go. Free, no key needed.</p>
+            </div>
+            <span className="btn">Open the workshop</span>
+          </a>
         </main>
       ) : null}
 
@@ -881,6 +902,7 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
             onAskReview={result.uploaded?.start && !result.deck.review ? () => fromDeck("upgrade")(result.uploaded!.start!) : undefined}
             onRestart={restart}
             onRebuild={ready ? build : undefined}
+            onEdit={() => void editInWorkshop(result.deck)}
             spend={result.model ? (result.free ? `Free build with ${modelInfo(result.model)?.label ?? result.model}` : result.usage ? `Built with ${modelInfo(result.model)?.label ?? result.model}: ${spendText(result.usage, result.model)}` : undefined) : undefined}
             donationUrl={config?.donationUrl ?? undefined}
             saveSlot={

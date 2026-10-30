@@ -30,6 +30,10 @@ export function HomeInfo() {
       </ol>
 
       <div className="home-tools">
+        <a className="home-tool" href="/workshop">
+          <h3>Deck workshop</h3>
+          <p>Build a deck yourself, card by card, with live checks for lands, ramp, draw, removal and legality. Free, no key.</p>
+        </a>
         <a className="home-tool" href="/bracket">
           <h3>Commander bracket checker</h3>
           <p>Paste any decklist and see which bracket it fits, with the cards that decide it. Free, no key.</p>
