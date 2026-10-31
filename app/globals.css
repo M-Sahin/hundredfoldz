@@ -4706,6 +4706,33 @@ main.ws {
 .ws-promo:hover {
   background: color-mix(in oklab, var(--brass) 13%, transparent);
 }
+/* a deck handed over by the workshop or My decks, waiting for its build to start */
+.handed {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 18px 22px;
+  border-radius: 22px;
+  border: 1px solid color-mix(in oklab, var(--brass) 55%, transparent);
+  background: color-mix(in oklab, var(--brass) 8%, transparent);
+}
+.handed-lead {
+  margin: 0;
+  color: var(--muted);
+  font-size: 17px;
+}
+.handed-lead strong {
+  color: var(--ink);
+  font-family: var(--font-display);
+}
+.handed .opt {
+  max-width: 360px;
+}
+.handed-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
 .hero-new {
   margin: 14px 0 0;
   color: var(--muted);
