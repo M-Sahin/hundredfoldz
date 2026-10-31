@@ -47,7 +47,7 @@ function excerpt(t: string, n = 140) {
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
 }
 
-function cardLine(c: CardInfo, text: "none" | "excerpt" | "full" = "excerpt", owned?: Set<string>, cur: Currency = "EUR") {
+export function cardLine(c: CardInfo, text: "none" | "excerpt" | "full" = "excerpt", owned?: Set<string>, cur: Currency = "EUR") {
   // the build's currency first (that's what its budget is in), the other one when it has no price
   const mine = cardPrice(c, cur);
   const other = cardPrice(c, cur === "EUR" ? "USD" : "EUR");
@@ -93,7 +93,7 @@ export async function resolveSeeds(names: string[]): Promise<{ seeds: CardInfo[]
 const MAX_PARALLEL_TOOLS = 6;
 
 /** Copy of the history with one moving cache breakpoint on the newest user block. */
-function withCacheBreakpoint(messages: any[]): any[] {
+export function withCacheBreakpoint(messages: any[]): any[] {
   const out = messages.map((m) => ({ ...m, content: Array.isArray(m.content) ? m.content.map((b: any) => ({ ...b })) : m.content }));
   const last = out[out.length - 1];
   if (last?.role === "user") {
@@ -653,7 +653,8 @@ function asBlocks(c: any): any[] {
   return typeof c === "string" ? [{ type: "text", text: c }] : c;
 }
 
-async function runLookup(u: ContentBlock & { type: "tool_use" }, emit: (e: StreamEvent) => void, engine: EngineOptions, owned?: Set<string>, cur: Currency = "EUR") {
+/** search_cards and get_cards, as the agent runs them (the workshop's card picks use them too). */
+export async function runLookup(u: ContentBlock & { type: "tool_use" }, emit: (e: StreamEvent) => void, engine: EngineOptions, owned?: Set<string>, cur: Currency = "EUR") {
   try {
     if (u.name === "search_cards") {
       const r = await scry.search(String(u.input.query ?? ""), u.input.order ?? "edhrec", Math.min(Number(u.input.limit ?? 20) || 20, 40));

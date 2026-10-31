@@ -69,6 +69,10 @@ const FAQ: { q: string; a: string }[] = [
     a: "Brackets 1 to 4 (Exhibition, Core, Upgraded and Optimized) from Wizards of the Coast's Commander Brackets. The free bracket checker tells you which bracket any existing decklist fits.",
   },
   {
+    q: "Can I build a deck myself?",
+    a: "Yes, in the deck workshop. Pick a commander and add cards one by one: search finds Commander-legal cards in its colors, and the workshop counts lands, ramp, card draw, removal and board wipes from the cards' text as you go, and checks legality and the bracket. It's free and needs no key. When you want help, hand the deck to Claude to finish or review it.",
+  },
+  {
     q: "Can it finish or improve a deck I already have?",
     a: "Yes. Paste or upload a decklist: if it has fewer than 100 cards, Claude completes it and keeps every card you have. If it's complete, Claude suggests up to 10 upgrades, each with a reason.",
   },

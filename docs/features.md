@@ -31,6 +31,18 @@ Everything Hundredfoldz does, in detail. Back to the [README](../README.md).
   - with a store connected (see [Short share links](self-hosting.md#short-share-links)), links are short: `/d/x7Kp2QaZ1`. Without one, the whole deck is compressed into the link (`/deck?d=…`, about 1.8 KB), so sharing works with no database at all
   - links always point at your public domain, never at a deployment URL that sits behind Vercel's login
 
+## Deck workshop
+
+[/workshop](https://hundredfoldz.app/workshop): build a deck yourself, card by card. Free, no key needed.
+
+- **Pick a commander** with Scryfall autocomplete, Surprise me or the popular commanders, and add a partner or Background when the commander allows one.
+- **Find cards:** search by name, rules text or type line (plain words), or with Scryfall syntax. Results are limited to Commander-legal cards in the commander's colors, most played first, with filters for a slot (ramp, card draw, removal, board wipes, protection, recursion, lands, using Scryfall Tagger), card type and mana value.
+- **Live checks** as you build, counted from the cards' own text: lands, ramp, card draw, removal, board wipes and protection against the usual Commander numbers. A short count links straight to a search for it. The coach lists problems first (color identity, legality, singleton, the bracket's Game Changers, mass land denial, extra turns) in the same words as the deck check a finished build gets.
+- **The deck** grouped by role (each card's role is read from its text; change it in the card view), the mana curve, deck balance, opening-hand odds and price on the Numbers tab, and sample hands. **Add basic lands** fills up to 36 lands and splits all the basics by what the spells need.
+- **Deal me 3 (card picks):** stuck on a slot? Claude deals three cards for it (the deck's biggest gaps first, plus synergy and win conditions), each with one line on why it fits this deck. The server checks every card before it's shown: on Scryfall, Commander-legal, in the commander's colors, not in the deck yet, and within the bracket's Game Changers; a card that fails is sent back for a replacement. Keep any, or deal three more: cards you passed on aren't offered again. An optional *Steer it* line ("cheaper", "no creatures") says what to look for. Runs on Claude Haiku with the visitor's own Claude API key (typed in or saved to the account), and the dialog shows what the deals cost. A site can also give a few free deals a day on its own key (`FREE_DEALS`, see [Free card picks](self-hosting.md#free-card-picks)); the workshop counts them down.
+- **Hand it to Claude:** *Finish it for me* sends an unfinished deck to the builder's complete mode (every card stays, Claude fills the rest); *Review my deck* sends a full one to upgrade mode (up to 10 swaps). Both use a free build or your Claude key.
+- **Keep it:** the deck in progress stays in the browser between visits. Save it to My decks, share a link, or copy it for Moxfield, Archidekt or MTG Arena. Any saved or finished deck opens in the workshop with **Edit in the workshop**.
+
 ## Bracket checker
 
 `/bracket` is a free tool: paste any Commander decklist (Moxfield, Archidekt, Arena, MTGO or plain "1 Card" lines) and it shows the lowest bracket the deck fits, the cards that decide it, and a legality check. It needs no Claude and no API key: Game Changer flags and card text come from Scryfall, combos from Commander Spellbook, and the rules are in `lib/server/bracket-check.ts` (checked against Wizards' brackets on 2026-10-25). Brackets 1 and 5 depend on intent, so the result says when a deck could also be one of those.

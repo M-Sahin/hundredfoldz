@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { autocomplete } from "../lib/client/api";
 
 /** Card-name combobox backed by Scryfall autocomplete. */
-export function CardSearch({ onPick, onClose, exclude }: { onPick: (name: string) => void; onClose: () => void; exclude: string[] }) {
+export function CardSearch({ onPick, onClose, exclude, placeholder = "Type a card name" }: { onPick: (name: string) => void; onClose: () => void; exclude: string[]; placeholder?: string }) {
   const [q, setQ] = useState("");
   const [items, setItems] = useState<string[]>([]);
   const [active, setActive] = useState(0);
@@ -52,7 +52,8 @@ export function CardSearch({ onPick, onClose, exclude }: { onPick: (name: string
       <input
         ref={input}
         className="search-input"
-        placeholder="Type a card name"
+        placeholder={placeholder}
+        aria-label={placeholder}
         value={q}
         role="combobox"
         aria-expanded={items.length > 0}

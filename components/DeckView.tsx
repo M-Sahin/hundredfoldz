@@ -39,6 +39,7 @@ export function DeckView({
   saveSlot,
   combos,
   onAskReview,
+  onEdit,
   firstTab = "cards",
 }: {
   deck: Deck;
@@ -57,6 +58,8 @@ export function DeckView({
   combos?: ComboFinding[];
   /** "Ask Claude for a review": runs a review with suggested swaps (the page decides how). */
   onAskReview?: () => void;
+  /** "Edit in the workshop": the page hands the deck over. */
+  onEdit?: () => void;
   /** Which tab to open on (uploaded decks open on the review). */
   firstTab?: Tab;
 }) {
@@ -127,7 +130,7 @@ export function DeckView({
                 label="More"
                 className="btn btn--quiet"
                 testId="more-menu"
-                items={[...(onRebuild ? [{ label: "Build another version", onClick: onRebuild, testId: "rebuild" }] : []), ...(onRestart ? [{ label: "Start over with new seeds", onClick: onRestart, testId: "new-seeds" }] : [])]}
+                items={[...(onEdit ? [{ label: "Edit in the workshop", onClick: onEdit, testId: "edit-workshop" }] : []), ...(onRebuild ? [{ label: "Build another version", onClick: onRebuild, testId: "rebuild" }] : []), ...(onRestart ? [{ label: "Start over with new seeds", onClick: onRestart, testId: "new-seeds" }] : [])]}
               />
             </div>
             {copied ? (
@@ -362,7 +365,7 @@ function curveVerdict(avg: number) {
   return avg < 2.6 ? "a low, fast curve" : avg <= 3.3 ? "a typical curve" : "on the heavy side";
 }
 
-function NumbersTab({ deck, openers }: { deck: Deck; openers: OpenerReport | null }) {
+export function NumbersTab({ deck, openers }: { deck: Deck; openers: OpenerReport | null }) {
   const cv = curve(deck);
   const max = Math.max(...cv, 1);
   const roles = byRole(deck);
@@ -457,7 +460,7 @@ function sentence(words: string[], cap = true) {
   return w.length < 2 ? w[0] : `${w.slice(0, -1).join(", ")} and ${w[w.length - 1]}`;
 }
 
-function HandTab({ deck, onOpen }: { deck: Deck; onOpen: (c: DeckCard) => void }) {
+export function HandTab({ deck, onOpen }: { deck: Deck; onOpen: (c: DeckCard) => void }) {
   const lib = useMemo(() => library(deck), [deck]);
   const [order, setOrder] = useState(() => shuffle(lib));
   const [drawn, setDrawn] = useState(7);
@@ -573,7 +576,8 @@ function BracketCard({ deck, validation }: { deck: Deck; validation: Validation 
   );
 }
 
-export function CardModal({ card, onClose }: { card: DeckCard; onClose: () => void }) {
+/** `actions`: buttons next to Open on Scryfall (the workshop adds and removes cards here). */
+export function CardModal({ card, onClose, actions }: { card: DeckCard; onClose: () => void; actions?: ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const d = ref.current;
@@ -606,6 +610,7 @@ export function CardModal({ card, onClose }: { card: DeckCard; onClose: () => vo
           </p>
           {!isBasicLand(card.name) ? <CardOffers name={card.name} /> : null}
           <div className="modal-actions">
+            {actions}
             {i?.scryfallUri ? (
               <a className="btn" href={i.scryfallUri} target="_blank" rel="noreferrer">
                 Open on Scryfall

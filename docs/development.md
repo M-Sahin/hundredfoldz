@@ -28,15 +28,15 @@ CI (`.github/workflows/ci.yml`) runs all of these on every push except the eval 
 ### Layout
 
 ```
-app/                    pages: / (builder), /bracket, /deck?d= and /d/<id> (shared decks); layout, CSS
-app/api/                generate (+ reconnect, stop), key/check, bracket, share, deck/resolve, og, config, cards/*
+app/                    pages: / (builder), /workshop, /bracket, /deck?d= and /d/<id> (shared decks); layout, CSS
+app/api/                generate (+ reconnect, stop), key/check, bracket, share, deck/resolve, og, config, cards/* (search: the workshop's)
 proxy.ts                Content Security Policy with a per-request nonce
 instrumentation.ts      counts uncaught server errors for /stats
-components/             App (flow and state), SeedHand, CardSearch, ForgeView (live build), DeckView, CardFace,
+components/             App (flow and state), Workshop (the deck workshop), SeedHand, CardSearch, ForgeView (live build), DeckView, CardFace,
                         KeyPanel, CollectionPanel, MyDecks, ShareSheet, SharedDeck, BracketChecker
 lib/server/             agent loop, engine variants, Claude client, Scryfall client, validation, combo check,
                         prompt, jobs (reconnectable builds), store (Upstash), share links, bracket check, demo
-lib/shared/             types, bracket rules, deck analysis, models and prices, collection and decklist parsers,
+lib/shared/             types, bracket rules, deck analysis, deck validation, the workshop's deck logic, models and prices, collection and decklist parsers,
                         share payloads, deck statistics and export
 lib/client/             browser API: builds with reconnect, key storage, My decks
 lib/skill/content.ts    generated from the pinned mtg-master skill release
@@ -61,7 +61,7 @@ The adapter maps the skill's scripts to tools the server implements, because Cla
 |---|---|---|
 | `scripts/scryfall.py search` | `search_cards` | `lib/server/scryfall.ts` |
 | `scripts/scryfall.py cards` | `get_cards` | `lib/server/scryfall.ts` |
-| `scripts/deckcheck.py --format commander` | `submit_deck`, validated server-side | `lib/server/validate.ts` |
+| `scripts/deckcheck.py --format commander` | `submit_deck`, validated server-side | `lib/shared/validate.ts` (the deck workshop runs it in the browser too) |
 
 `submit_deck` checks that the deck has exactly 100 cards, that it's singleton (with exceptions such as Relentless Rats and basic lands), Commander legality, color identity, the commander and any partner/Background pairing, that all five seeds are in the deck, and that there are at most 3 Game Changers. It also warns about mass land denial and extra turns. Errors go back to Claude until the deck passes (at most 4 attempts). The Game Changers list is read live from Scryfall, so it stays current.
 

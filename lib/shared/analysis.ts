@@ -3,7 +3,7 @@
 // Everything here is a heuristic over Scryfall's Oracle text and fields: good at counting,
 // not a substitute for judgement. Pure functions, no network.
 import { COMMANDER_TEMPLATE } from "./bracket";
-import type { Budget, CardInfo, Color, Deck, DeckCard } from "./types";
+import type { Budget, CardInfo, Color, Deck, DeckCard, Role } from "./types";
 import { isBasicLand } from "./types";
 import { budgetCap, cardPrice, money, type Currency } from "./currency";
 
@@ -121,6 +121,14 @@ export function detectFunctions(c: CardInfo): Set<Fn> {
   // a wipe usually also reads like removal; count it once, as a wipe
   if (out.has("wipe") && !/^Overload\b/m.test(text) && !RX.removal.some((r) => r.test(text.replace(/all [^.]*/gi, "")))) out.delete("removal");
   return out;
+}
+
+/** A card's role read from its text alone (no Claude involved): land, else the first function it performs. */
+export function guessRole(c: CardInfo): Role {
+  if (/\bLand\b/.test(c.typeLine.split("//")[0])) return "land";
+  const fns = detectFunctions(c);
+  for (const f of ["ramp", "draw", "removal", "wipe", "protection", "recursion"] as const) if (fns.has(f)) return f;
+  return /Creature|Planeswalker/.test(c.typeLine) ? "synergy" : "utility";
 }
 
 // ---- mana -------------------------------------------------------------------

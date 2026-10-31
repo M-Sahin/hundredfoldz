@@ -21,6 +21,10 @@ export const SERVER_EVENTS = {
   free_refused: ["used", "ip", "site"],
   key_check: ["ok", "bad"],
   key_saved: [],
+  /** a "Deal me 3" in the workshop, by whose key */
+  coach_deal: ["own", "saved", "free"],
+  /** the free-deal wall: why a visitor didn't get one */
+  coach_free_refused: ["used", "ip", "site"],
   deck_saved: ["account"],
   share_link: [],
   login_email: [],
@@ -36,6 +40,8 @@ export const CLIENT_EVENTS = {
   export: ["moxfield", "arena", "txt"],
   buy: ["tcgplayer", "cardkingdom", "cardmarket", "other"],
   share_sheet: [],
+  /** the deck workshop: opened with a commander, a deck brought in to edit, handed to Claude, saved */
+  workshop: ["opened", "from_deck", "finish", "review", "saved"],
   /** an uncaught error in the page (its message is counted separately, cleaned up) */
   client_error: [],
 } as const satisfies Record<string, readonly string[]>;
