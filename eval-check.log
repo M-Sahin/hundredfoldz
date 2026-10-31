@@ -1,0 +1,29 @@
+ok   azusa-lands              Azusa, Lost but Seeking [G], Exploration [G], Oracle of Mul Daya [G], Lotus Cobra [G], Scute Swarm [G]
+ok   white-tokens             Anointed Procession [W], Raise the Alarm [W], Intangible Virtue [W], Mentor of the Meek [W], Cathars' Crusade [W]
+ok   emry-thopters            Emry, Lurker of the Loch [U], Thopter Spy Network [U], Sai, Master Thopterist [U], Retrofitter Foundry [C], Whirler Rogue [U]
+ok   krrik-black              K'rrik, Son of Yawgmoth [B], Bloodghast [B], Gray Merchant of Asphodel [B], Exsanguinate [B], Phyrexian Obliterator [B]
+ok   krenko-goblins           Krenko, Mob Boss [R], Goblin Chieftain [R], Impact Tremors [R], Beetleback Chief [R], Goblin Instigator [R]
+ok   boros-equipment          Bruenor Battlehammer [RW], Puresteel Paladin [W], Stoneforge Mystic [W], Embercleave [R], Kemba's Skyguard [W]
+ok   ezuri-counters           Ezuri, Claw of Progress [GU], Hardened Scales [G], Champion of Lambholt [G], Inspiring Call [G], The Ozolith [C]
+ok   phenax-mill              Phenax, God of Deception [BU], Hedron Crab [U], Ruin Crab [U], Fraying Sanity [U], Mesmeric Orb [C]
+ok   judith-aristocrats       Judith, the Scourge Diva [BR], Mayhem Devil [BR], Goblin Bombardment [R], Carrion Feeder [B], Bitterblossom [B]
+ok   sythis-enchantress       Sythis, Harvest's Hand [GW], Enchantress's Presence [G], Sanctum Weaver [G], Setessan Champion [G], Sterling Grove [GW]
+ok   izzet-spells             Young Pyromancer [R], Talrand, Sky Summoner [U], Storm-Kiln Artist [R], Guttersnipe [R], Thousand-Year Storm [RU]
+ok   karlov-lifegain          Karlov of the Ghost Council [BW], Soul Warden [W], Ajani's Pridemate [W], Sanguine Bond [B], Cleric Class [W]
+ok   xenagos-stompy           Xenagos, God of Revels [GR], Garruk's Uprising [G], Ghalta, Primal Hunger [G], Rampaging Baloths [G], Return of the Wildspeaker [G]
+ok   esper-flicker            Ephemerate [W], Mulldrifter [U], Ravenous Chupacabra [B], Restoration Angel [W], Charming Prince [W]
+ok   tana-reyhan-partners     Tana, the Bloodsower [GR], Reyhan, Last of the Abzan [BG], Forgotten Ancient [G], Bramblewood Paragon [G], Ivy Lane Denizen [G]
+ok   ojer-dfc                 Ojer Axonil, Deepest Might // Temple of Power [R], Hellrider [R], Purphoros, God of the Forge [R], Goblin Rabblemaster [R], Legion Warboss [R]
+ok   five-color-staples       Lightning Bolt [R], Counterspell [U], Swords to Plowshares [W], Llanowar Elves [G], Dark Ritual [B]
+ok   muldrotha-graveyard      Muldrotha, the Gravetide [BGU], Stitcher's Supplier [B], Mulch [G], Ramunap Excavator [G], Eternal Witness [G]
+ok   edgar-vampires           Edgar Markov [BRW], Cordial Vampire [B], Sorin, Lord of Innistrad [BW], Vampire Nocturnus [B], Bloodline Keeper // Lord of Lineage [B]
+ok   temur-landfall           Retreat to Kazandu [G], Tatyova, Benthic Druid [GU], Valakut Exploration [R], Ancient Greenwarden [G], Avenger of Zendikar [G]
+
+Commander Spellbook find-my-combos: HTTP 200
+response keys: count, next, previous, results
+results keys: identity, included, includedByChangingCommanders, almostIncluded, almostIncludedByAddingColors, almostIncludedByChangingCommanders, almostIncludedByAddingColorsAndChangingCommanders
+first variant keys: id, of, salt, uses, notes, prices, status, spoiler, identity, includes, produces, requires, legalities, popularity, bracketTag, description, manaNeeded, variantCount, saltVoteCount, manaValueNeeded, easyPrerequisites, notablePrerequisites
+first variant (trimmed): {"id":"690-3966","of":[{"id":539}],"salt":1.81,"uses":[{"card":{"id":690,"name":"Sanguine Bond","faces":1,"spoiler":false,"oracleId":"73089a39-a2f6-4aa2-a058-e6551475153d","typeLine":"Enchantment","imageUriBackPng":null,"imageUriFrontPng":"https://cards.scryfall.io/png/front/a/d/ad4de9f1-7a39-45af-828e-c59234d9e9b9.png?1783927550","imageUriBackLarge":null,"imageUriBackSmall":null,"imageUriBackNormal":null,"imageUriFrontLarge":"https://cards.scryfall.io/display/front/a/d/ad4de9f1-7a39-45af-828e-c59234d9e9b9.webp?1783927550","imageUriFrontSmall":"https://cards.scryfall.io/thumb/front/a/d/ad4de9f1-7a39-45af-828e-c59234d9e9b9.webp?1783927550","layoutRotationFront":null,"imageUriFrontNormal":"https://cards.scryfall.io/grid/front/a/d/ad4de9f1-7a39-45af-828e-c59234d9e9b9.webp?1783927550","imageUriBackArtCrop":null,"imageUriFrontArtCrop":"https://cards.scryfall.io/art/front/a/d/ad4de9f1-7a39-45af-828e-c59234d9e9b9.webp?1783927550"},"quantity":1,"usedFace":null,"zoneLocations":["B"],"exileCardState":"","mustBeCommander":false,"libraryCardState":"","graveyardCardState":"","battlefieldCardState":""},{"card":{"id":3966,"name":"Exquisite Blood","faces":1,"spoiler":false,"oracleId":"8f933fae-6c0c-42d7-a817-14760d8285cd","typeLine":"Enchantment","imageUriBackPng":null,"imageUriFrontPng":"https://cards.scryfall.io/png/front/0/e/0e8ccfa7-4178-476a-a155-0ca1c98556c9.png?1783913874","imageUriBackLarge":null,"imageUriBackSmall":null,"imageUriBackNormal":null,"imageUriFrontLarge":"https://cards.s
+  combo: Sanguine Bond + Exquisite Blood -> Infinite lifegain triggers, Infinite lifeloss [S]
+  combo: Demonic Consultation + Thassa's Oracle -> Exile your library, Win the game [R]
+checkCombos: checked=true combos=2 tooStrong=Demonic Consultation+Thassa's Oracle

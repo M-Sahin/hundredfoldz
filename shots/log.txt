@@ -1,0 +1,81 @@
+build log in plain words: sacrifice outlets (creatures) | cards with “whenever another creature you control dies” | ramp, mana value 3 or less, no lands
+opening hands: Keep the first 7 72% | Keep after the free mulligan 92% | Third land on turn 3 94% | Fourth land on turn 4 86% | Meren of Clan Nel Toth by turn 5 93% | Black mana by turn 3 99% | Green mana by turn 3 99%
+singles or boxes: Singles or boxes? The best box for this deck is Time Spiral Remastered Draft: 9 of your cards can be in it, and one box gives you about €14.13 of them. As singles, all 9 cost €52.21, so singles are the cheaper way to finish the deck. Box EV
+buy the cards: Cardmarket Europe | TCGplayer US | Card Kingdom US; TCGplayer cart has 80 cards
+card offers: Cardmarket from €0.35 ONC #125 Buy | TCGplayer from $0.37 FIC #333 Buy | Card Kingdom from $0.79 Buy
+share link: 1727 characters
+shared page: 81 tiles, 100 cards
+preview for WhatsApp: og:image in <head> = true
+preview for Mozilla: og:image in <head> = true
+preview for facebookexternalhit: og:image in <head> = true
+og:title: Meren&#x27;s Endless Harvest: a Bracket 3 Commander deck led by Meren of Clan Nel Toth
+og:image: HTTP 200, image/png, 265 KB
+dropped stream: deck arrived after 1 reconnect(s): from=38
+switch apps: reconnected 8 ms after coming back (build still running then: true)
+key form for password managers: {"user":true,"pass":true,"submit":true}
+own key with a fake key: "Claude didn't accept this API key. Check that it was copied completely, or create a new one in the Claude Console."
+CSP: set; 14 script tags, 0 without the nonce
+bracket checker: Bracket 3: Upgraded; 2 reason(s): B3+ 2 Game Changers: brackets 1 and 2 allow none, bracket 3 up to three. | B3+ Two-card combo (Infinite death triggers, Infinite creature ETB): brackets 1 and 2 expe
+header on /bracket at 360px: 72px tall, items 33/0/0/44px
+header on / at 360px: 72px tall, items 33/0/0/44px
+complete my deck: Your deck has 25 cards. Complete it to 100? Claude keeps every card and adds 75, following the bracket, budget and options below.
+complete without a key: "Completing a deck needs a Claude API key. You pay Anthropic directly: about 25 cents a dec"
+bracket upload: Bracket 3: Upgraded
+upgrade my deck: Your deck is complete. Look for upgrades? Claude keeps the plan and the commander and suggests up to 10 swaps, each with a reason, for the bracket and budget below.
+upgrade request: mode upgrade, 75 cards, commander Judith, the Scourge Diva, basics {"Mountain":10,"Swamp":14}; swaps shown: Arcane Signet → Night's Whisper Cheap card draw for the sacrifice plan; 1 card(s) marked New
+show my deck (1440px): "Judith's deck"; 5 strong, 2 weak points; Claude review offered: true; groups: Ramp 15 | Card draw 11 | Removal 12 | Board wipes 3 | Protection 1 | Recursion 2
+show my deck (360px): "Judith's deck"; 5 strong, 2 weak points; Claude review offered: true; groups: Ramp 15 | Card draw 11 | Removal 12 | Board wipes 3 | Protection 1 | Recursion 2
+box EV list: 118 boxes; Mystery Booster Commander Edition Draft Booster box · 36 packs · 41% of cards unpriced 2026-10-19 €581 €481 Homer, the Hermit | Reality Fracture Play Booster box · 30 packs 2026-10-02 €132 €86 The Theorist, Jace Beleren | Reality Fracture Collector Booster box · 12 packs 2026-10-02 €264 €218 The Theorist, Jace Beleren | The Hobbit Play Booster box · 30 packs 2026-08-14 €105 €63 Gleaming Splendor | The Hobbit Collector Booster box · 12 packs 2026-08-14 €513 €455 The One Ring | Marvel Super Heroes Play Booster box · 30 packs 2026-06-26 €110 €66 The Mind Stone
+box EV product /ev/mbc-draft: Average card value €581.46 €16.15 a pack, every card at its trend price | After selling €481.37 5% fee, cards under €1.00 at €0 | Your chance to get €100.00 back 100% Average result +381% after selling
+phone menu: Build a deck | Workshop | Bracket checker | Box EV | GitHub
+deck shape: "Creatures: the minimum (40) is above the maximum (20)."; build blocked: true
+login: discord → /api/auth/oauth?provider=discord&next=%2F; email → "We sent a login link to player@example.com. Open it in this browser to log in. I"
+account decks: My decks 1 deck in your account, on every device you log in on. Build a new deck Cloud Meren Meren of Clan Nel Toth Today, 05:27 PM Open Share More; navbar: P Account
+free builds: "Free build: 2 of 3 left, on Claude Haiku 5.5. For Sonnet or Opus, use your own key."; examples: Meren, graveyard value | Krenko, goblin swarm | Atraxa, +1/+1 counters
+free builds used up: sent a bot-check token: true; sheet: "Your free builds are used up. Add your own Claude API key to keep building, on a"
+dollars: budget hint "Under about $100"; Price $194; first shop TCGplayer US; after switching: Price €177
+popular commanders: 200; new since 2026-07-03: The Queen of Dale, Smaug the Magnificent, Belladonna Took, Radagast of Rhosgobel, Geist of Saint Thalia, Avacyn, Angel of Horror, Smaug, Wicked Worm, Samut, Hazoret's Champion, Kíli the Resourceful, Liliana the Faultless
+popular commanders: tapped "The Queen of Dale"; crowned as commander
+save: not saved until asked; then "✓
+Saved in this browser"
+result: stats Price €177 | Lands 36 | Average mana value 2.87 | Keeps its first 7 72% | Bracket 3 ✓; bracket "✓
+Fits Bracket 3 (Upgraded)"; export menu Copy list (Moxfield, Archidekt) | Copy for MTG Arena | Download .txt; after copying: "Copied. Paste it into your deckbuilder."
+cards: 81 in the grid (the default), 81 in stacks
+phone build: while searching scrolled to 560px, newest line at 810px of 844px; while writing the grid is at 16px
+phone stacks: first tap pops 1 card (modal closed), second tap opens it
+save button: "Save to my account"; dialog "Save your deck"; will move ["ZVUJMoPf37Hwmvwodz4m"]
+rename and reload: opened as "Renamed for the test" at /?view=deck&name=Renamed%20for%20the%20test; after reload "Renamed for the test", "✓ Saved in this browser"
+last deck: an unsaved build shows "Save deck": true; after opening from My decks the last deck is "Opened from My decks", "✓ Saved in this browser"
+my decks: Meren's Endless Harvest Meren of Clan Nel Toth Today, 05:29 PM Open Share More; menu Improve it with Claude (up to 10 swaps) | Edit it in the workshop | Build again from the same seeds | Rename | Delete
+open from My decks: first saw opening; server renders the opening screen: true; url now /?view=deck&name=Meren%27s%20Endless%20Harvest
+phone deck menu: 108–378px of 390px
+workshop: 40 cards after 3 picks and the basic lands
+phone sweep at 360px: 33 screens checked (home, menu, seeds, more options, deck shape, key sheet, decklist tab, building, result, export menu, more menu, buy links, stacks, list tab, numbers tab, hand tab, card view, share sheet, my decks, deck menu, deck rename, deck delete question, workshop commander, workshop deck, workshop search, workshop checks, workshop numbers, workshop card view, bracket checker, box EV, a box, account, privacy)
+workshop: 40 cards after 3 picks and the basic lands
+workshop: 40 cards after 3 picks and the basic lands
+seo: 123 sitemap urls; home "Hundredfoldz: open-source AI Commander (EDH) deckbuilder for MTG"; canonical http://localhost:3000; og:image http://localhost:3000/og.jpg; structured data WebSite, WebApplication, FAQPage; 9 questions; llms.txt 6216 chars
+Browser errors:
+15-own-key: Failed to load resource: the server responded with a status of 400 (Bad Request)
+32-free-builds: Failed to load resource: the server responded with a status of 402 (Payment Required)
+phone sweep, seeds: div.table-art (-22–382)
+phone sweep, more options: div.table-art (-22–382)
+phone sweep, deck shape: div.table-art (-22–382)
+phone sweep, key sheet: div.table-art (-22–382)
+phone sweep, decklist tab: div.table-art (-22–382)
+phone sweep, building: div.table-art (-22–382)
+phone sweep, result: div.table-art (-22–382)
+phone sweep, export menu: div.table-art (-22–382)
+phone sweep, more menu: div.table-art (-22–382)
+phone sweep, buy links: div.table-art (-22–382)
+phone sweep, stacks: div.table-art (-22–382)
+phone sweep, list tab: div.table-art (-22–382)
+phone sweep, numbers tab: div.table-art (-22–382)
+phone sweep, hand tab: div.table-art (-22–382)
+phone sweep, card view: div.table-art (-22–382)
+phone sweep, share sheet: div.table-art (-22–382)
+phone sweep, workshop deck: div.table-art (-22–382)
+phone sweep, workshop search: div.table-art (-22–382)
+phone sweep, workshop checks: div.table-art (-22–382)
+phone sweep, workshop numbers: div.table-art (-22–382)
+phone sweep, workshop card view: div.table-art (-22–382)
+52-stats-nobody: Failed to load resource: the server responded with a status of 404 (Not Found)

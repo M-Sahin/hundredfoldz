@@ -1,0 +1,38 @@
+config: {
+  mode: 'demo',
+  ownKeys: true,
+  donationUrl: null,
+  affiliates: {},
+  keyVault: false,
+  freeBuilds: null,
+  turnstileSiteKey: '1x00000000000000000000AA',
+  model: 'demo (scripted)',
+  skillVersion: '1.0.3',
+  accessCodeRequired: false,
+  setupProblem: null,
+  demoSeeds: [
+    'Meren of Clan Nel Toth',
+    'Sakura-Tribe Elder',
+    'Viscera Seer',
+    'Eternal Witness',
+    'Grim Haruspex'
+  ],
+  currency: 'EUR'
+}
+events: {
+  status: 5,
+  text: 54,
+  tool: 4,
+  tool_result: 4,
+  draft_card: 79,
+  validation: 1,
+  deck: 1,
+  error: 0,
+  done: 1
+} 9177 ms
+validation attempt 1: { ok: true, errors: [], warnings: [], total: 100, gameChangers: [] }
+analysis: lands 36 (+0 MDFC), tapped 6; counts {"ramp":13,"draw":11,"removal":12,"wipe":5,"protection":3,"recursion":8,"tutor":2}; avg MV 2.87; curve 0/9/19/19/7/6/2/1
+analysis colors: B 25/36 (Dark Prophecy), G 23/28 (Eternal Witness); staples 23 (39%); €177.08
+tagged but not detected (0): none
+detected beyond the tag (8): Yawgmoth, Thran Physician [synergy → draw], Caustic Caterpillar [synergy → removal], Reassembling Skeleton [synergy → recursion], Liliana, Death's Majesty [synergy → wipe+recursion], Fiend Artisan [synergy → tutor], Jarad's Orders [utility → tutor], Massacre Wurm [wincon → wipe], Sheoldred, Whispering One [wincon → recursion]
+E2E OK: "Meren's Endless Harvest", 100 cards, Game Changers: none; warnings: none

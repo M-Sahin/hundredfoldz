@@ -1,0 +1,13 @@
+ramp       recall 88% (35/40)  false positives 0/40
+  missed: Path to Exile; Dark Ritual; Jeska's Will; Mana Drain; Ashnod's Altar
+draw       recall 95% (38/40)  false positives 1/40
+  missed: Eternal Witness; Herald's Horn
+  false positives: Smothering Tithe
+removal    recall 93% (37/40)  false positives 7/40
+  missed: Boros Charm; Braids, Arisen Nightmare; Dispatch
+  false positives: Counterspell; An Offer You Can't Refuse; Arcane Denial; Negate; Cyclonic Rift; Swan Song; Fierce Guardianship
+wipe       recall 90% (36/40)  false positives 0/40
+  missed: Promise of Loyalty; Ezuri's Predation; Archfiend of Ifnir
+recursion  recall 85% (34/40)  false positives 0/40
+  missed: Finale of Devastation; Underworld Breach; Living Death; Rise of the Dark Realms; Six; Breach the Multiverse
+protection recall 100% (40/40)  false positives 0/40
