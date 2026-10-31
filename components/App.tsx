@@ -107,6 +107,9 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
   const [free, setFree] = useState<FreeBuilds | null>(null);
   const [sheet, setSheet] = useState<{ lead?: string } | null>(null);
   const pending = useRef<GenerateRequest | null>(null);
+  // a build handed over by the workshop or My decks, at the top of the setup page until it's under way:
+  // it may need the access code first, and its errors show there (not under the build button, out of sight)
+  const [waiting, setWaiting] = useState<{ name: string; kind: Handoff["kind"]; req: GenerateRequest | null } | null>(null);
   const human = useHumanCheck("build");
   const [collection, setCollection] = useState<Collection | null>(null);
   const [usage, setUsage] = useState<{ usage: Usage; model?: string } | null>(null);
@@ -366,6 +369,7 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
     if (config?.freeBuilds) refreshFree();
     if (ctl.signal.aborted) return;
     if (got) {
+      setWaiting(null);
       if (spent && spent.model !== "demo") Object.assign(got, spent, isFree ? { free: true } : {});
       setFilled(100);
       setResult(got);
@@ -589,6 +593,13 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
     if (!config || !got || got.h.kind === "open") return;
     handed.current = null;
     const { h } = got;
+    const hold = (req: GenerateRequest | null) => setWaiting({ name: h.name ?? "your deck", kind: h.kind, req });
+    const go = (req: GenerateRequest) => {
+      hold(req);
+      // without the access code the server would refuse it: wait for the code instead
+      const own = keyRef.current.key || keyRef.current.saved;
+      if (!(config.accessCodeRequired && !own && !accessCode.trim())) start(req);
+    };
     void (async () => {
       try {
         const r = await got.deck;
@@ -597,20 +608,22 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
         if (h.kind === "rebuild") {
           const s = deckSeeds(r.deck);
           if (!s) {
+            hold(null);
             setError("This deck wasn't built from five seeds, so it can't be built again. Try “Improve it with Claude” instead.");
             return;
           }
           const cmd = r.deck.commander.seed ? r.deck.commander.name : null;
           void loadSeeds(s, cmd);
-          start({ seeds: s, commander: cmd, budget, theme, bracket: b });
+          go({ seeds: s, commander: cmd, budget, theme, bracket: b });
           return;
         }
         // upgrade: every card stays a candidate, the commander and the plan stay;
         // complete (a deck from the workshop): every card stays, Claude fills the rest
         const cards = r.deck.cards.map((c) => ({ name: c.name, qty: c.qty }));
         const { names, basics } = splitBasics(cards);
-        start({ mode: h.kind === "complete" ? "complete" : "upgrade", seeds: names, basics, commander: r.deck.commander.name, partner: r.deck.partner?.name ?? null, budget, theme, bracket: b });
+        go({ mode: h.kind === "complete" ? "complete" : "upgrade", seeds: names, basics, commander: r.deck.commander.name, partner: r.deck.partner?.name ?? null, budget, theme, bracket: b });
       } catch (e) {
+        hold(null);
         setError((e as Error).message);
       } finally {
         setOpening(null);
@@ -693,6 +706,44 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
         </main>
       ) : phase === "setup" ? (
         <main className="setup">
+          {waiting ? (
+            <section className="handed" aria-label="Your deck, ready for Claude" data-testid="handed">
+              <p className="handed-lead">
+                <strong>{waiting.name}</strong>{" "}
+                {waiting.kind === "complete" ? "is ready to finish: Claude keeps every card you picked and fills it up to 100." : waiting.kind === "upgrade" ? "is ready to improve: Claude suggests up to 10 swaps." : "is ready to build again from its five seeds."}
+              </p>
+              {waiting.req && config?.accessCodeRequired && !hasOwn ? (
+                <label className="opt">
+                  <span className="opt-label">Access code</span>
+                  <input className="field" type="password" value={accessCode} onChange={(e) => setAccessCode(e.target.value)} placeholder="Ask the person who runs this app" autoComplete="off" autoFocus />
+                </label>
+              ) : null}
+              <div className="handed-actions">
+                {waiting.req ? (
+                  <button type="button" className="btn btn--brass" disabled={!!needCode} onClick={() => waiting.req && start(waiting.req)} data-testid="handed-go">
+                    {waiting.kind === "complete" ? "Finish it" : waiting.kind === "upgrade" ? "Improve it" : "Build it again"}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="btn btn--quiet"
+                  onClick={() => {
+                    setWaiting(null);
+                    setError(null);
+                  }}
+                >
+                  Not now
+                </button>
+              </div>
+              {error ? (
+                <p className="error" role="alert">
+                  {error}
+                </p>
+              ) : waiting.req && needCode ? (
+                <p className="go-hint">Enter the access code to start.</p>
+              ) : null}
+            </section>
+          ) : null}
           {saved ? (
             <p className="welcome" data-testid="last-deck">
               <span>Your last deck</span>
@@ -827,7 +878,7 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
                 ))}
               </div>
             </fieldset>
-            {config?.accessCodeRequired && !hasOwn ? (
+            {config?.accessCodeRequired && !hasOwn && !waiting ? (
               <label className="opt">
                 <span className="opt-label">Access code</span>
                 <input className="field" type="password" value={accessCode} onChange={(e) => setAccessCode(e.target.value)} placeholder="Ask the person who runs this app" autoComplete="off" />
@@ -856,7 +907,7 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
             ) : null}
             <BuildStatus config={config} access={access} keyState={key} free={free} onSheet={openSheet} deckMode={mode === "deck"} />
             {goHint ? <p className="go-hint">{goHint}</p> : null}
-            {error ? (
+            {error && !waiting ? (
               <p className="error" role="alert">
                 {error}
               </p>
