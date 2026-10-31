@@ -54,6 +54,8 @@ import { useCurrency } from "../lib/client/currency";
 import { useSiteConfig } from "../lib/client/site-config";
 import { useAccount } from "../lib/client/account";
 import { track } from "../lib/client/track";
+import { TableArt } from "./TableArt";
+import { useCardPeek } from "./CardPeek";
 
 type Pane = "search" | "deck" | "checks";
 type DeckTab = "list" | "numbers" | "hand";
@@ -328,8 +330,9 @@ export default function Workshop() {
 
   return (
     <div className="app">
+      <TableArt src={ws.commander?.artCrop} />
       <SiteHeader active="workshop" />
-      <main className="ws" data-pane={pane}>
+      <main className="ws playmat" data-pane={pane}>
         <section className="ws-bar" aria-label="Commander and deck">
           <div className="ws-cmd">
             <CardFace card={ws.commander} className="ws-cmd-card" onClick={() => setOpen({ name: ws.commander!.name, role: "wincon", why: "Commander", qty: 1, info: ws.commander! })} />
@@ -395,7 +398,7 @@ export default function Workshop() {
             <button type="button" className="btn" onClick={() => void handOver()} disabled={!!step.problem} title={step.problem ?? undefined} data-testid="ws-claude">
               {step.kind === "complete" ? "Finish it for me" : "Review my deck"}
             </button>
-            <ShareButton deck={deck} />
+            <ShareButton deck={deck} primary={false} />
             <Menu
               label="Export"
               items={[
@@ -480,7 +483,7 @@ export default function Workshop() {
               ) : (
                 <div className="ws-deal-slots" role="group" aria-label="Deal me 3 for">
                   {pickSlots(checks).map((s, i) => (
-                    <button key={s.slot} type="button" className={`btn btn--small ${i === 0 ? "btn--brass" : ""}`} onClick={() => setDealing(s)} data-testid={`ws-deal-${s.slot}`}>
+                    <button key={s.slot} type="button" className={`btn btn--small ${i === 0 ? "btn--ink" : ""}`} onClick={() => setDealing(s)} data-testid={`ws-deal-${s.slot}`}>
                       {i === 0 ? `Deal me 3: ${COACH_SLOTS[s.slot].label.toLowerCase()}` : COACH_SLOTS[s.slot].label}
                     </button>
                   ))}
@@ -726,6 +729,7 @@ function SearchPane({ ws, slot, setSlot, onAdd, onOpen }: { ws: WorkshopDeck; sl
 }
 
 function DeckPane({ ws, onRemove, onOpen, onBasics, onStartOver }: { ws: WorkshopDeck; onRemove: (name: string) => void; onOpen: (c: DeckCard) => void; onBasics: () => void; onStartOver: () => void }) {
+  const peek = useCardPeek();
   const [tab, setTab] = useState<DeckTab>("list");
   const [sure, setSure] = useState(false);
   const deck = useMemo(() => toDeck(ws), [ws]);
@@ -735,6 +739,7 @@ function DeckPane({ ws, onRemove, onOpen, onBasics, onStartOver }: { ws: Worksho
   const openers = useMemo(() => (tab === "numbers" && cards >= 20 ? simulateOpeners(deck) : null), [tab, deck, cards]);
   return (
     <section className="ws-pane ws-deck panel" data-pane="deck" aria-label="Your deck">
+      {peek.el}
       <div className="tabs" role="tablist" aria-label="Deck views">
         {(
           [
@@ -783,7 +788,7 @@ function DeckPane({ ws, onRemove, onOpen, onBasics, onStartOver }: { ws: Worksho
                   <ul>
                     {g.cards.map((c) => (
                       <li key={c.name}>
-                        <button type="button" className="ws-card-name" onClick={() => onOpen(c)}>
+                        <button type="button" className="ws-card-name" onClick={() => onOpen(c)} {...peek.bind(c.info)}>
                           {c.name}
                           {c.qty > 1 ? <small> ×{c.qty}</small> : null}
                         </button>

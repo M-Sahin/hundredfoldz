@@ -9,7 +9,7 @@ export default function Page() {
   return (
     <div className="app">
       <SiteHeader active={null} />
-      <main className="account-page prose">
+      <main className="account-page prose playmat page-mat">
         <h1>Privacy</h1>
         <p>Hundredfoldz works without an account. This page says what it keeps, and where.</p>
         <h3>Without an account</h3>

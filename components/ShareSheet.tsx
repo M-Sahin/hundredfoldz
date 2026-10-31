@@ -15,14 +15,15 @@ async function copyText(text: string): Promise<boolean> {
   }
 }
 
-/** "Share deck" button plus the sheet it opens. The whole deck travels inside the link. */
-export function ShareButton({ deck, shareD }: { deck: Deck; shareD?: string }) {
+/** "Share deck" button plus the sheet it opens. The whole deck travels inside the link.
+ *  `primary`: the gold button (the deck page); off where another action is the main one (the workshop saves). */
+export function ShareButton({ deck, shareD, primary = true }: { deck: Deck; shareD?: string; primary?: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <button
         type="button"
-        className="btn btn--brass"
+        className={primary ? "btn btn--brass" : "btn"}
         onClick={() => {
           track("share_sheet");
           setOpen(true);

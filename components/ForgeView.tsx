@@ -68,7 +68,7 @@ export function ForgeView({
   const legend = [...new Set(draft.map((d) => d.role))];
 
   return (
-    <section className="forge" aria-live="polite">
+    <section className="forge playmat" aria-live="polite">
       <div className="forge-notes">
         <div className="forge-head">
           <h2>Building your deck</h2>
@@ -106,7 +106,7 @@ export function ForgeView({
           <span className="log-caret" aria-hidden ref={caretRef} />
         </div>
         <div className="forge-foot">
-          <button type="button" className="btn btn--quiet" onClick={onCancel}>
+          <button type="button" className="btn" onClick={onCancel}>
             Stop building
           </button>
           {log.some((x) => x.kind === "tool" && x.name === "search_cards") ? (
@@ -117,7 +117,7 @@ export function ForgeView({
         </div>
       </div>
 
-      <div className="forge-hundred" ref={gridRef}>
+      <div className="forge-hundred zone" ref={gridRef}>
         <div className="hundred-count" aria-label={`${count} of 100 cards`}>
           <span className="hundred-num">{count}</span>
           <span className="hundred-of">of 100</span>

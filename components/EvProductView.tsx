@@ -108,99 +108,101 @@ export default function EvProductView({ product, error }: { product: EvProduct |
           </div>
         </section>
 
-        <div className="ev-grid">
-          <section className="panel ev-inputs" aria-label="Your box">
-            <h3>Your box</h3>
-            <NumberField label="What you pay for the box" value={price} onChange={setPrice} step={1} suffix="€" hint="Put in a shop's price to see if it's worth opening." testId="ev-price" />
-            <NumberField label="Packs in the box" value={packs} onChange={setPacks} hint={`A ${KIND_LABEL[product.kind]} box usually has ${product.packsPerBox}.`} />
-            <div className="ev-buy">
-              <span className="opt-label">Find this box</span>
-              <BuyLinks links={buyBoxLinks(`${product.setName} ${KIND_LABEL[product.kind]} Box`, site?.affiliates, cur)} />
-            </div>
-            <details className="ev-more">
-              <summary>Selling costs</summary>
-              <NumberField label="Marketplace fee" value={fee} onChange={setFee} step={0.5} suffix="%" hint="Cardmarket charges 5% on each sale." />
-              <NumberField label="Cards under this are worth nothing" value={cutoff} onChange={setCutoff} step={0.25} suffix="€" hint="Bulk isn't worth listing one by one." />
-              <NumberField label="Sell below the trend price by" value={haircut} onChange={setHaircut} step={1} suffix="%" hint="To sell faster." />
-            </details>
-          </section>
+        <div className="playmat page-mat">
+          <div className="ev-grid">
+            <section className="panel ev-inputs" aria-label="Your box">
+              <h3>Your box</h3>
+              <NumberField label="What you pay for the box" value={price} onChange={setPrice} step={1} suffix="€" hint="Put in a shop's price to see if it's worth opening." testId="ev-price" />
+              <NumberField label="Packs in the box" value={packs} onChange={setPacks} hint={`A ${KIND_LABEL[product.kind]} box usually has ${product.packsPerBox}.`} />
+              <div className="ev-buy">
+                <span className="opt-label">Find this box</span>
+                <BuyLinks links={buyBoxLinks(`${product.setName} ${KIND_LABEL[product.kind]} Box`, site?.affiliates, cur)} />
+              </div>
+              <details className="ev-more">
+                <summary>Selling costs</summary>
+                <NumberField label="Marketplace fee" value={fee} onChange={setFee} step={0.5} suffix="%" hint="Cardmarket charges 5% on each sale." />
+                <NumberField label="Cards under this are worth nothing" value={cutoff} onChange={setCutoff} step={0.25} suffix="€" hint="Bulk isn't worth listing one by one." />
+                <NumberField label="Sell below the trend price by" value={haircut} onChange={setHaircut} step={1} suffix="%" hint="To sell faster." />
+              </details>
+            </section>
 
-          <section className="ev-results" aria-label="Results" data-testid="ev-results">
-            <div className="ev-stat">
-              <span className="ev-stat-label">Average card value</span>
-              <span className="ev-stat-big">{eur(grossBox)}</span>
-              <span className="ev-stat-sub">{eur(base.grossPack)} a pack, every card at its trend price</span>
-            </div>
-            <div className="ev-stat">
-              <span className="ev-stat-label">After selling</span>
-              <span className="ev-stat-big">{eur(netBox)}</span>
-              <span className="ev-stat-sub">
-                {pct(sell.fee)} fee{sell.cutoff ? `, cards under ${eur(sell.cutoff)} at €0` : ""}
-                {sell.haircut ? `, ${pct(sell.haircut)} below trend` : ""}
-              </span>
-            </div>
-            <div className={`ev-stat ${roi == null ? "" : roi >= 0 ? "is-up" : "is-down"}`}>
-              <span className="ev-stat-label">Your chance to get {yourPrice != null ? eur(yourPrice) : "your price"} back</span>
-              <span className="ev-stat-big" data-testid="ev-chance">
-                {chance != null ? pct(chance) : "—"}
-              </span>
-              <span className="ev-stat-sub">{roi != null ? `Average result ${roi >= 0 ? "+" : ""}${pct(roi)} after selling` : "Put in your price"}</span>
-            </div>
-          </section>
-        </div>
-
-        <section className="panel" aria-label="How boxes vary">
-          <h3>How {BOXES.toLocaleString("en")} simulated boxes came out</h3>
-          <p className="panel-sub">
-            After selling costs. Half the boxes are worth less than {eur(calc.sim.p50)}; one in ten is worth less than {eur(calc.sim.p10)}, and one in ten more than {eur(calc.sim.p90)}. The average ({eur(calc.sim.mean)}) sits above the middle because a few big pulls lift it.
-          </p>
-          <div className="ev-hist" role="img" aria-label={`Box values from ${eur(calc.lo)} to ${eur(calc.hi)}`}>
-            {calc.bins.map((b, i) => {
-              const from = calc.lo + ((calc.hi - calc.lo) * i) / calc.bins.length;
-              const to = calc.lo + ((calc.hi - calc.lo) * (i + 1)) / calc.bins.length;
-              const at = yourPrice != null && yourPrice >= from && yourPrice < to;
-              const under = yourPrice != null && to <= yourPrice;
-              return <span key={i} className={`ev-bar ${under ? "is-under" : ""} ${at ? "is-at" : ""}`} style={{ height: `${(b / maxBins) * 100}%` }} title={`${eur(from)}–${eur(to)}: ${pct(b / calc.sim.boxes)}`} />;
-            })}
-          </div>
-          <div className="ev-hist-axis">
-            <span>{eur(calc.lo)}</span>
-            <span>{eur(calc.hi)}</span>
-          </div>
-          {yourPrice != null ? <p className="opt-hint">Bars below your price are dimmed.</p> : null}
-        </section>
-
-        <section className="panel" aria-label="The cards that carry the value">
-          <h3>The cards that carry the value</h3>
-          <p className="panel-sub">The top five are {pct(calc.top5)} of the box&apos;s average value. Copies per box is the average: 0.25 means one box in four has one.</p>
-          <ol className="ev-cards">
-            {calc.top.map((t) => (
-              <li key={`${t.card.s}${t.card.c}${t.card.f}`} className="ev-card">
-                {t.card.img ? <img src={t.card.img} alt="" width={46} height={64} loading="lazy" /> : <span className="ev-card-ph" />}
-                <span className="ev-card-name">
-                  <strong>{t.card.n}</strong>
-                  <small>
-                    {t.card.s.toUpperCase()} #{t.card.c}
-                    {t.card.f ? " · foil" : ""}
-                  </small>
+            <section className="ev-results" aria-label="Results" data-testid="ev-results">
+              <div className="ev-stat">
+                <span className="ev-stat-label">Average card value</span>
+                <span className="ev-stat-big">{eur(grossBox)}</span>
+                <span className="ev-stat-sub">{eur(base.grossPack)} a pack, every card at its trend price</span>
+              </div>
+              <div className="ev-stat">
+                <span className="ev-stat-label">After selling</span>
+                <span className="ev-stat-big">{eur(netBox)}</span>
+                <span className="ev-stat-sub">
+                  {pct(sell.fee)} fee{sell.cutoff ? `, cards under ${eur(sell.cutoff)} at €0` : ""}
+                  {sell.haircut ? `, ${pct(sell.haircut)} below trend` : ""}
                 </span>
-                <span className="num">{t.card.p != null ? eur(t.card.p) : "—"}</span>
-                <span className="num ev-card-per">{t.perBox >= 0.1 ? t.perBox.toFixed(2) : t.perBox.toFixed(3)} per box</span>
-                <span className="num ev-card-share">{pct(t.share)}</span>
-              </li>
-            ))}
-          </ol>
-        </section>
+              </div>
+              <div className={`ev-stat ${roi == null ? "" : roi >= 0 ? "is-up" : "is-down"}`}>
+                <span className="ev-stat-label">Your chance to get {yourPrice != null ? eur(yourPrice) : "your price"} back</span>
+                <span className="ev-stat-big" data-testid="ev-chance">
+                  {chance != null ? pct(chance) : "—"}
+                </span>
+                <span className="ev-stat-sub">{roi != null ? `Average result ${roi >= 0 ? "+" : ""}${pct(roi)} after selling` : "Put in your price"}</span>
+              </div>
+            </section>
+          </div>
 
-        <p className="note">
-          How it&apos;s worked out: each pack layout and card slot is weighted by the published print odds (from{" "}
-          <a href="https://github.com/taw/magic-sealed-data" target="_blank" rel="noopener noreferrer">
-            magic-sealed-data
-          </a>
-          , the source MTGJSON uses), and each card is priced at its Cardmarket trend price from Scryfall.{" "}
-          {base.unpriced > 0.005 ? `${pct(base.unpriced)} of the cards in a pack have no price and count as €0${base.unpriced >= 0.1 ? ", so the real value is likely higher than shown" : ""}. ` : ""}
-          Trend prices aren&apos;t offers: selling a lot of one card at once usually gets less, and postage isn&apos;t included. The average is not a promise: most boxes come out below it.
-        </p>
+          <section className="panel" aria-label="How boxes vary">
+            <h3>How {BOXES.toLocaleString("en")} simulated boxes came out</h3>
+            <p className="panel-sub">
+              After selling costs. Half the boxes are worth less than {eur(calc.sim.p50)}; one in ten is worth less than {eur(calc.sim.p10)}, and one in ten more than {eur(calc.sim.p90)}. The average ({eur(calc.sim.mean)}) sits above the middle because a few big pulls lift it.
+            </p>
+            <div className="ev-hist" role="img" aria-label={`Box values from ${eur(calc.lo)} to ${eur(calc.hi)}`}>
+              {calc.bins.map((b, i) => {
+                const from = calc.lo + ((calc.hi - calc.lo) * i) / calc.bins.length;
+                const to = calc.lo + ((calc.hi - calc.lo) * (i + 1)) / calc.bins.length;
+                const at = yourPrice != null && yourPrice >= from && yourPrice < to;
+                const under = yourPrice != null && to <= yourPrice;
+                return <span key={i} className={`ev-bar ${under ? "is-under" : ""} ${at ? "is-at" : ""}`} style={{ height: `${(b / maxBins) * 100}%` }} title={`${eur(from)}–${eur(to)}: ${pct(b / calc.sim.boxes)}`} />;
+              })}
+            </div>
+            <div className="ev-hist-axis">
+              <span>{eur(calc.lo)}</span>
+              <span>{eur(calc.hi)}</span>
+            </div>
+            {yourPrice != null ? <p className="opt-hint">Bars below your price are dimmed.</p> : null}
+          </section>
+
+          <section className="panel" aria-label="The cards that carry the value">
+            <h3>The cards that carry the value</h3>
+            <p className="panel-sub">The top five are {pct(calc.top5)} of the box&apos;s average value. Copies per box is the average: 0.25 means one box in four has one.</p>
+            <ol className="ev-cards">
+              {calc.top.map((t) => (
+                <li key={`${t.card.s}${t.card.c}${t.card.f}`} className="ev-card">
+                  {t.card.img ? <img src={t.card.img} alt="" width={46} height={64} loading="lazy" /> : <span className="ev-card-ph" />}
+                  <span className="ev-card-name">
+                    <strong>{t.card.n}</strong>
+                    <small>
+                      {t.card.s.toUpperCase()} #{t.card.c}
+                      {t.card.f ? " · foil" : ""}
+                    </small>
+                  </span>
+                  <span className="num">{t.card.p != null ? eur(t.card.p) : "—"}</span>
+                  <span className="num ev-card-per">{t.perBox >= 0.1 ? t.perBox.toFixed(2) : t.perBox.toFixed(3)} per box</span>
+                  <span className="num ev-card-share">{pct(t.share)}</span>
+                </li>
+              ))}
+            </ol>
+          </section>
+
+          <p className="note">
+            How it&apos;s worked out: each pack layout and card slot is weighted by the published print odds (from{" "}
+            <a href="https://github.com/taw/magic-sealed-data" target="_blank" rel="noopener noreferrer">
+              magic-sealed-data
+            </a>
+            , the source MTGJSON uses), and each card is priced at its Cardmarket trend price from Scryfall.{" "}
+            {base.unpriced > 0.005 ? `${pct(base.unpriced)} of the cards in a pack have no price and count as €0${base.unpriced >= 0.1 ? ", so the real value is likely higher than shown" : ""}. ` : ""}
+            Trend prices aren&apos;t offers: selling a lot of one card at once usually gets less, and postage isn&apos;t included. The average is not a promise: most boxes come out below it.
+          </p>
+        </div>
       </main>
       <SiteFooter />
     </div>

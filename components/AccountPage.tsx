@@ -49,56 +49,58 @@ export default function AccountPage() {
       <SiteHeader active={null} />
       <main className="account-page">
         <h1>Your account</h1>
-        {!acct.loaded ? <p className="panel-sub">Loading…</p> : null}
-        {acct.loaded && !acct.enabled ? <p className="panel-sub">This copy of Hundredfoldz has no accounts. Your decks are kept in this browser under My decks.</p> : null}
-        {deleted ? <p className="panel-sub" role="status">Your account and every deck in it are deleted.</p> : null}
-        {acct.loaded && acct.enabled && !acct.user && !deleted ? (
-          <section className="panel">
-            <h3>Log in</h3>
-            {loginError ? <p className="error">{loginError}</p> : null}
-            <LoginForm next="/decks" />
-          </section>
-        ) : null}
-        {acct.user ? (
-          <>
-            <section className="panel" data-testid="account-info">
-              <h3>{acct.user.name}</h3>
-              <p className="panel-sub">
-                Logged in {acct.user.email ? `as ${acct.user.email}` : ""} with {acct.user.provider === "email" ? "an email link" : acct.user.provider[0].toUpperCase() + acct.user.provider.slice(1)}. Your decks are saved to this account, so they're on every device you log in on.
-              </p>
-              <div className="deck-actions">
-                <a className="btn btn--brass" href="/decks">
-                  My decks
-                </a>
-                <button type="button" className="btn" onClick={() => void account.logout()}>
-                  Log out
-                </button>
-              </div>
+        <div className="playmat page-mat">
+          {!acct.loaded ? <p className="panel-sub">Loading…</p> : null}
+          {acct.loaded && !acct.enabled ? <p className="panel-sub">This copy of Hundredfoldz has no accounts. Your decks are kept in this browser under My decks.</p> : null}
+          {deleted ? <p className="panel-sub" role="status">Your account and every deck in it are deleted.</p> : null}
+          {acct.loaded && acct.enabled && !acct.user && !deleted ? (
+            <section className="panel">
+              <h3>Log in</h3>
+              {loginError ? <p className="error">{loginError}</p> : null}
+              <LoginForm next="/decks" />
             </section>
-            {site?.ownKeys ? (
-              <section className="panel account-key" id="key" data-testid="account-key">
-                <KeyPanel
-                  value={keyState}
-                  onChange={setKeyState}
-                  canSave={!!site.keyVault}
-                  lead={site.keyVault ? "Save your key here once and every device you log in on builds with it, on any model. It's stored encrypted and never sent back to the browser." : undefined}
-                />
+          ) : null}
+          {acct.user ? (
+            <>
+              <section className="panel" data-testid="account-info">
+                <h3>{acct.user.name}</h3>
+                <p className="panel-sub">
+                  Logged in {acct.user.email ? `as ${acct.user.email}` : ""} with {acct.user.provider === "email" ? "an email link" : acct.user.provider[0].toUpperCase() + acct.user.provider.slice(1)}. Your decks are saved to this account, so they're on every device you log in on.
+                </p>
+                <div className="deck-actions">
+                  <a className="btn btn--brass" href="/decks">
+                    My decks
+                  </a>
+                  <button type="button" className="btn" onClick={() => void account.logout()}>
+                    Log out
+                  </button>
+                </div>
               </section>
-            ) : null}
-            <section className="panel account-danger">
-              <h3>Delete your account</h3>
-              <p className="panel-sub">This deletes your account and every deck saved in it, right away. It can&apos;t be undone. Decks you shared by link keep working.</p>
-              <label className="opt">
-                <span className="opt-label">Type delete to confirm</span>
-                <input className="field" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="off" data-testid="delete-confirm" />
-              </label>
-              <button type="button" className="btn btn--danger" disabled={confirm.trim().toLowerCase() !== "delete" || busy} onClick={() => void del()}>
-                {busy ? "Deleting…" : "Delete my account"}
-              </button>
-              {error ? <p className="error">{error}</p> : null}
-            </section>
-          </>
-        ) : null}
+              {site?.ownKeys ? (
+                <section className="panel account-key" id="key" data-testid="account-key">
+                  <KeyPanel
+                    value={keyState}
+                    onChange={setKeyState}
+                    canSave={!!site.keyVault}
+                    lead={site.keyVault ? "Save your key here once and every device you log in on builds with it, on any model. It's stored encrypted and never sent back to the browser." : undefined}
+                  />
+                </section>
+              ) : null}
+              <section className="panel account-danger">
+                <h3>Delete your account</h3>
+                <p className="panel-sub">This deletes your account and every deck saved in it, right away. It can&apos;t be undone. Decks you shared by link keep working.</p>
+                <label className="opt">
+                  <span className="opt-label">Type delete to confirm</span>
+                  <input className="field" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="off" data-testid="delete-confirm" />
+                </label>
+                <button type="button" className="btn btn--danger" disabled={confirm.trim().toLowerCase() !== "delete" || busy} onClick={() => void del()}>
+                  {busy ? "Deleting…" : "Delete my account"}
+                </button>
+                {error ? <p className="error">{error}</p> : null}
+              </section>
+            </>
+          ) : null}
+        </div>
       </main>
       <SiteFooter />
     </div>

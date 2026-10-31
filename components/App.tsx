@@ -21,6 +21,7 @@ import { DeckView } from "./DeckView";
 import { UpgradeSummary } from "./UpgradeSummary";
 import { ForgeView, type DraftCell, type LogItem } from "./ForgeView";
 import { SeedHand, seedProblem, type Seed } from "./SeedHand";
+import { TableArt } from "./TableArt";
 import { useHumanCheck } from "./useHumanCheck";
 import { track } from "../lib/client/track";
 import { useCurrency } from "../lib/client/currency";
@@ -152,6 +153,8 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
   }, []);
 
   const filledSeeds = seeds.filter(Boolean) as Seed[];
+  // the art on the table: the deck's commander once it's built, before that the commander seed (or the first seed with art)
+  const seedArt = (filledSeeds.find((s) => commander && s.name.toLowerCase() === commander.toLowerCase()) ?? filledSeeds.find((s) => s.info?.artCrop))?.info?.artCrop;
   const identity = useMemo(() => {
     const set = new Set<Color>();
     for (const s of filledSeeds) for (const c of s.info?.colorIdentity ?? []) set.add(c);
@@ -679,6 +682,7 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
 
   return (
     <div className="app" style={tint ? tintStyle(tint) : undefined}>
+      <TableArt src={phase === "result" && result ? (result.deck.commander.info?.artCrop ?? seedArt) : seedArt} />
       <SiteHeader
         active="build"
         donationUrl={config ? (config.donationUrl ?? null) : undefined}
@@ -756,81 +760,118 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
               </button>
             </p>
           ) : null}
-          <section className="hero">
-            <p className="hero-kicker">Open-source AI Commander deckbuilder</p>
-            <h1>
-              Five cards in.
-              <br />A hundred out.
-            </h1>
-            <p className="hero-sub">Pick five cards you love. Claude builds a 100-card Commander deck around them and checks every card on Scryfall.</p>
-            <p className="hero-new">
-              <span className="ws-new">New</span>
-              Rather build it yourself? <a href="/workshop">Open the deck workshop</a>
-            </p>
+          {/* the first screen: what this is and the Build button on the left, your five cards on the mat on the right,
+              sized to the window so all of it is in view; the options are just below */}
+          <section className="stage" aria-label="Build your deck">
+            <div className="stage-text">
+              <section className="hero">
+                <p className="hero-kicker">Open-source AI Commander deckbuilder</p>
+                <h1>
+                  Five cards in.
+                  <br />
+                  <span className="hero-gold">A hundred out.</span>
+                </h1>
+                <p className="hero-sub">Pick five cards you love. Claude builds a 100-card Commander deck around them and checks every card on Scryfall.</p>
+              </section>
+
+              <div className="modes" role="tablist" aria-label="How to start">
+                {(
+                  [
+                    ["seeds", "From five cards"],
+                    ["deck", "From my decklist"],
+                  ] as [Mode, string][]
+                ).map(([m, label]) => (
+                  <button key={m} type="button" role="tab" aria-selected={mode === m} className={`mode ${mode === m ? "is-on" : ""}`} onClick={() => setMode(m)} data-testid={`mode-${m}`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="go">
+                {mode === "seeds" ? (
+                  <button type="button" className="btn btn--big btn--brass" onClick={build} disabled={!ready || !!needCode || (!!blocked && !hasOwn)} data-testid="build">
+                    Build my deck
+                  </button>
+                ) : null}
+                <p className="go-summary">
+                  Bracket {bracket}, {BRACKETS[bracket].name} · {BUDGETS.find(([v]) => v === budget)?.[1] ?? "Any budget"}
+                  {moreSet ? ` · ${moreSet} more set` : ""} · <a href="#build-options">Change</a>
+                </p>
+                <BuildStatus config={config} access={access} keyState={key} free={free} onSheet={openSheet} deckMode={mode === "deck"} />
+                {goHint ? <p className="go-hint">{goHint}</p> : null}
+                {error && !waiting ? (
+                  <p className="error" role="alert">
+                    {error}
+                  </p>
+                ) : null}
+              </div>
+              <p className="hero-new">
+                <span className="ws-new">New</span>
+                Rather build it yourself? <a href="/workshop">Open the deck workshop</a>
+              </p>
+            </div>
+
+            <div className="playmat stage-mat">
+              {mode === "seeds" ? (
+                <section className="zone seeds" aria-labelledby="seeds-label">
+                  <p className="zone-label" id="seeds-label">
+                    Your five cards
+                  </p>
+                  <SeedHand seeds={seeds} commander={commander} onPick={pick} onRemove={remove} onCommander={setCommander} />
+                  <div className="mat-bar">
+                    <span className="mat-identity">
+                      {filledSeeds.length ? (
+                        <>
+                          <IdentityPips colors={identity} size={16} /> {identity.length ? `${identity.length}-color` : "Colorless"} so far, {filledSeeds.length} of 5 cards
+                        </>
+                      ) : (
+                        "Any five Commander-legal cards, a commander included."
+                      )}
+                    </span>
+                    <span className="mat-actions">
+                      {filledSeeds.length < 5 ? (
+                        <button type="button" className="btn" onClick={surprise} disabled={surprising}>
+                          {surprising ? "Shuffling…" : filledSeeds.length ? "Fill the rest randomly" : "Surprise me"}
+                        </button>
+                      ) : null}
+                    </span>
+                  </div>
+                  {!filledSeeds.length && config ? (
+                    <div className="examples" data-testid="examples">
+                      <span className="examples-label">{examples.length === 1 ? "Or watch" : "Or try"}</span>
+                      {examples.map((e) => (
+                        <button key={e.label} type="button" className="chip chip--example" onClick={() => loadSeeds(e.seeds, e.commander)}>
+                          {examples.length === 1 ? "the demo deck: " : ""}
+                          {e.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </section>
+              ) : (
+                <section className="zone deckzone" aria-label="Your decklist">
+                  <DeckStartPanel
+                    onComplete={fromDeck("complete")}
+                    onUpgrade={fromDeck("upgrade")}
+                    onRead={(r) => {
+                      if (r.bracket >= 1 && r.bracket <= 4) setBracket(r.bracket as BracketNumber);
+                    }}
+                    onShow={showUploaded}
+                    blocked={shapeError ? "Fix the deck shape first." : needCode ? "Enter the access code first." : undefined}
+                  />
+                </section>
+              )}
+            </div>
           </section>
 
-          <div className="modes" role="tablist" aria-label="How to start">
-            {(
-              [
-                ["seeds", "From five cards"],
-                ["deck", "From my decklist"],
-              ] as [Mode, string][]
-            ).map(([m, label]) => (
-              <button key={m} type="button" role="tab" aria-selected={mode === m} className={`mode ${mode === m ? "is-on" : ""}`} onClick={() => setMode(m)} data-testid={`mode-${m}`}>
-                {label}
-              </button>
-            ))}
-          </div>
+          {mode === "seeds" && !filledSeeds.length && config && !(config.mode === "demo" && !hasOwn) ? (
+            <div className="stage-below">
+              <TrendingCommanders onPick={(name) => void loadSeeds([name], name)} />
+            </div>
+          ) : null}
 
-          {mode === "seeds" ? (
-            <section className="mat" aria-label="Seed cards">
-              <SeedHand seeds={seeds} commander={commander} onPick={pick} onRemove={remove} onCommander={setCommander} />
-              <div className="mat-bar">
-                <span className="mat-identity">
-                  {filledSeeds.length ? (
-                    <>
-                      <IdentityPips colors={identity} size={16} /> {identity.length ? `${identity.length}-color` : "Colorless"} so far, {filledSeeds.length} of 5 cards
-                    </>
-                  ) : (
-                    "Any five Commander-legal cards, a commander included."
-                  )}
-                </span>
-                <span className="mat-actions">
-                  {filledSeeds.length < 5 ? (
-                    <button type="button" className="btn" onClick={surprise} disabled={surprising}>
-                      {surprising ? "Shuffling…" : filledSeeds.length ? "Fill the rest randomly" : "Surprise me"}
-                    </button>
-                  ) : null}
-                </span>
-              </div>
-              {!filledSeeds.length && config ? (
-                <div className="examples" data-testid="examples">
-                  <span className="examples-label">{examples.length === 1 ? "Or watch" : "Or try"}</span>
-                  {examples.map((e) => (
-                    <button key={e.label} type="button" className="chip chip--example" onClick={() => loadSeeds(e.seeds, e.commander)}>
-                      {examples.length === 1 ? "the demo deck: " : ""}
-                      {e.label}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-              {!filledSeeds.length && config && !(config.mode === "demo" && !hasOwn) ? <TrendingCommanders onPick={(name) => void loadSeeds([name], name)} /> : null}
-            </section>
-          ) : (
-            <section className="mat mat--deck" aria-label="Your decklist">
-              <DeckStartPanel
-                onComplete={fromDeck("complete")}
-                onUpgrade={fromDeck("upgrade")}
-                onRead={(r) => {
-                  if (r.bracket >= 1 && r.bracket <= 4) setBracket(r.bracket as BracketNumber);
-                }}
-                onShow={showUploaded}
-                blocked={shapeError ? "Fix the deck shape first." : needCode ? "Enter the access code first." : undefined}
-              />
-            </section>
-          )}
-
-          <section className="options" aria-label="Build options">
+          <section className="playmat builder" id="build-options" aria-label="Build options">
+          <section className="options" aria-label="Options">
             {mode === "seeds" ? (
               <div className="opt">
                 <span className="opt-label" id="cmd-label">
@@ -898,21 +939,7 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
               </div>
             </details>
           </section>
-
-          <div className="go">
-            {mode === "seeds" ? (
-              <button type="button" className="btn btn--big btn--brass" onClick={build} disabled={!ready || !!needCode || (!!blocked && !hasOwn)} data-testid="build">
-                Build my deck
-              </button>
-            ) : null}
-            <BuildStatus config={config} access={access} keyState={key} free={free} onSheet={openSheet} deckMode={mode === "deck"} />
-            {goHint ? <p className="go-hint">{goHint}</p> : null}
-            {error && !waiting ? (
-              <p className="error" role="alert">
-                {error}
-              </p>
-            ) : null}
-          </div>
+          </section>
           {hasDecks ? (
             <p className="all-decks">
               <a href="/decks">All your decks</a>
