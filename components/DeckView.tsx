@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCardPeek } from "./CardPeek";
 import { COMMANDER_TEMPLATE, bracketInfo } from "../lib/shared/bracket";
 import { MANA_COLORS, ROLE_COLORS, averageMv, byRole, byType, curve, exportText, library, pips, price, shuffle, totalCards, isLand } from "../lib/shared/deck-utils";
 import type { Color, Deck, DeckCard, Validation } from "../lib/shared/types";
@@ -98,7 +99,7 @@ export function DeckView({
   };
 
   return (
-    <section className="deck">
+    <section className="deck playmat">
       <header className="deck-banner" style={{ ["--art" as string]: cmd.info?.artCrop && cmd.info.artist ? `url("${cmd.info.artCrop}")` : "none" }}>
         <div className="deck-banner-inner">
           <CardFace card={cmd.info} name={cmd.name} tilt className="deck-cmd" onClick={() => setOpen(cmd)} loading="eager" />
@@ -114,11 +115,17 @@ export function DeckView({
             <div className="deck-actions">
               <ShareButton deck={deck} shareD={shareD} />
               {saveSlot}
-              <button type="button" className={`btn ${buying ? "is-on" : ""}`} onClick={() => setBuying((b) => !b)} aria-expanded={buying} data-testid="buy-toggle">
+              {onEdit ? (
+                <button type="button" className="btn" onClick={onEdit} data-testid="edit-workshop">
+                  Edit in the workshop
+                </button>
+              ) : null}
+              <button type="button" className={`btn btn--quiet ${buying ? "is-on" : ""}`} onClick={() => setBuying((b) => !b)} aria-expanded={buying} data-testid="buy-toggle">
                 Buy the cards
               </button>
               <Menu
                 label="Export"
+                className="btn btn--quiet"
                 testId="export-menu"
                 items={[
                   { label: "Copy list (Moxfield, Archidekt)", onClick: () => void copy("moxfield"), testId: "copy-list" },
@@ -130,7 +137,7 @@ export function DeckView({
                 label="More"
                 className="btn btn--quiet"
                 testId="more-menu"
-                items={[...(onEdit ? [{ label: "Edit in the workshop", onClick: onEdit, testId: "edit-workshop" }] : []), ...(onRebuild ? [{ label: "Build another version", onClick: onRebuild, testId: "rebuild" }] : []), ...(onRestart ? [{ label: "Start over with new seeds", onClick: onRestart, testId: "new-seeds" }] : [])]}
+                items={[...(onRebuild ? [{ label: "Build another version", onClick: onRebuild, testId: "rebuild" }] : []), ...(onRestart ? [{ label: "Start over with new seeds", onClick: onRestart, testId: "new-seeds" }] : [])]}
               />
             </div>
             {copied ? (
@@ -177,20 +184,22 @@ export function DeckView({
       <div className="deck-body">
         <aside className="deck-side">
           {deck.winConditions.length ? (
-            <>
-          <h3>How it wins</h3>
-          <ol className="wincons">
-            {deck.winConditions.map((w) => (
-              <li key={w}>{w}</li>
-            ))}
-          </ol>
-            </>
+            <section className="zone wins" aria-labelledby="wins-label">
+              <h3 className="zone-label" id="wins-label">
+                How it wins
+              </h3>
+              <ol className="wincons">
+                {deck.winConditions.map((w) => (
+                  <li key={w}>{w}</li>
+                ))}
+              </ol>
+            </section>
           ) : null}
           <BracketCard deck={deck} validation={validation} />
           {deck.shape ? <ShapeCard deck={deck} /> : null}
         </aside>
 
-        <div className="deck-main">
+        <div className="deck-main zone">
           <div className="tabs" role="tablist" aria-label="Deck views">
             {(
               [
@@ -272,8 +281,8 @@ function CardsTab({ deck, onOpen, added, view }: { deck: Deck; onOpen: (c: DeckC
             {ROLE_LABELS[g.role]} <span className="role-count">{g.count}</span>
           </h3>
           <div className="role-grid">
-            {g.cards.map((c) => (
-              <div key={c.name} className="tile">
+            {g.cards.map((c, i) => (
+              <div key={c.name} className="tile" style={{ ["--i" as string]: i }}>
                 <CardFace card={c.info} name={c.name} onClick={() => onOpen(c)} />
                 <Badges c={c} added={added} />
               </div>
@@ -334,8 +343,10 @@ function Stacks({ deck, onOpen, added }: { deck: Deck; onOpen: (c: DeckCard) => 
 }
 
 function ListTab({ deck, onOpen }: { deck: Deck; onOpen: (c: DeckCard) => void }) {
+  const peek = useCardPeek();
   return (
     <div className="list">
+      {peek.el}
       {byType(deck).map((g) => (
         <section key={g.type} className="list-group">
           <h3>
@@ -344,7 +355,7 @@ function ListTab({ deck, onOpen }: { deck: Deck; onOpen: (c: DeckCard) => void }
           <ul>
             {g.cards.map((c) => (
               <li key={c.name}>
-                <button type="button" className="list-row" onClick={() => onOpen(c)}>
+                <button type="button" className="list-row" onClick={() => onOpen(c)} {...peek.bind(c.info)}>
                   <span className="list-qty">{c.qty}</span>
                   <span className="list-name">{c.name}</span>
                   <span className="list-role" style={{ color: ROLE_COLORS[c.role] }}>

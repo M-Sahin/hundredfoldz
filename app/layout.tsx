@@ -1,12 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Alegreya, Alegreya_Sans } from "next/font/google";
+import { Alegreya, Alegreya_Sans, Alegreya_Sans_SC, Caveat } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { PageErrors } from "../components/PageErrors";
+import { MatLight } from "../components/MatLight";
 import { HOME_TITLE, SITE_DESCRIPTION, SITE_NAME, indexable, publicOrigin } from "../lib/server/site";
 import "./globals.css";
 
 const display = Alegreya({ subsets: ["latin"], weight: ["500", "700", "800"], variable: "--font-display", display: "swap" });
-const ui = Alegreya_Sans({ subsets: ["latin"], weight: ["400", "500", "700"], variable: "--font-ui", display: "swap" });
+const ui = Alegreya_Sans({ subsets: ["latin"], weight: ["400", "500", "700", "800"], variable: "--font-ui", display: "swap" });
+// zone labels printed on the mat, and Claude's handwritten notes (not preloaded: they are small and below the fold)
+const label = Alegreya_Sans_SC({ subsets: ["latin"], weight: ["700"], variable: "--font-label", display: "swap" });
+const note = Caveat({ subsets: ["latin"], weight: ["600"], variable: "--font-note", display: "swap", preload: false });
 
 // The defaults every page starts from; pages set their own title, description and canonical URL.
 export async function generateMetadata(): Promise<Metadata> {
@@ -34,14 +38,15 @@ export async function generateMetadata(): Promise<Metadata> {
 // every page gets a per-request CSP nonce (proxy.ts), so pages render per request
 export const dynamic = "force-dynamic";
 
-export const viewport: Viewport = { themeColor: "#121733", width: "device-width", initialScale: 1 };
+export const viewport: Viewport = { themeColor: "#0b0e26", width: "device-width", initialScale: 1 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${display.variable} ${ui.variable}`}>
+    <html lang="en" className={`${display.variable} ${ui.variable} ${label.variable} ${note.variable}`}>
       <body>
         {children}
         <PageErrors />
+        <MatLight />
         {/* Vercel Web Analytics only exists on Vercel; elsewhere (Docker, Node, CI) the script would 404 */}
         {process.env.VERCEL === "1" || process.env.VERCEL_ENV ? <Analytics /> : null}
       </body>

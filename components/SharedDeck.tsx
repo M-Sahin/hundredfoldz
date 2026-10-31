@@ -3,6 +3,7 @@ import { SiteHeader } from "./SiteHeader";
 import { useEffect, useState } from "react";
 import type { Deck, Validation } from "../lib/shared/types";
 import { DeckView } from "./DeckView";
+import { TableArt } from "./TableArt";
 
 /** /deck?d=... : someone else's shared deck, rebuilt from the link with fresh Scryfall data. */
 export default function SharedDeck({ d, missing }: { d: string; missing?: boolean }) {
@@ -23,6 +24,7 @@ export default function SharedDeck({ d, missing }: { d: string; missing?: boolea
 
   return (
     <div className="app">
+      <TableArt src={state && "deck" in state ? state.deck.commander.info?.artCrop : null} />
       <SiteHeader active={null} />
       <main>
         {!state ? <p className="loading">Loading the deck and its cards from Scryfall…</p> : null}

@@ -139,84 +139,86 @@ export default function DecksPage() {
               {!acct.loaded ? "Loading…" : signedIn ? (cloud === null && !error ? "Loading your decks…" : `${total} deck${total === 1 ? "" : "s"} in your account, on every device you log in on.`) : `${total} deck${total === 1 ? "" : "s"} in this browser.`}
             </p>
           </div>
-          <a className="btn btn--brass" href="/">
+          <a className={total ? "btn btn--brass" : "btn"} href="/">
             Build a new deck
           </a>
         </header>
 
-        {acct.loaded && acct.enabled && !signedIn ? (
-          <div className="decks-banner" data-testid="decks-login">
-            <p>
-              <strong>These decks only live in this browser.</strong> Clearing it, or another device, loses them. A free account keeps them everywhere: no password, just your email.
-            </p>
-            <button type="button" className="btn btn--brass" onClick={() => setLogin(true)}>
-              Save them to an account
-            </button>
-          </div>
-        ) : null}
-        {signedIn && local.length ? (
-          <div className="decks-banner">
-            <p>
-              {local.length} deck{local.length === 1 ? " is" : "s are"} only in this browser.
-            </p>
-            <button type="button" className="btn btn--brass" onClick={() => void move(local)} disabled={moving} data-testid="import-decks">
-              {moving ? "Moving…" : "Move to my account"}
-            </button>
-          </div>
-        ) : null}
-        {note ? (
-          <p className="decks-note" role="status">
-            {note}
-          </p>
-        ) : null}
-        {error ? <p className="error">{error}</p> : null}
-
-        {total > 6 ? (
-          <div className="decks-tools">
-            <input className="field" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a deck or commander" aria-label="Find a deck" />
-            <div className="viewswitch" role="group" aria-label="Sort">
-              {(
-                [
-                  ["new", "Newest"],
-                  ["name", "A–Z"],
-                ] as [Sort, string][]
-              ).map(([s, label]) => (
-                <button key={s} type="button" className={`viewswitch-btn ${sort === s ? "is-on" : ""}`} aria-pressed={sort === s} onClick={() => setSort(s)}>
-                  {label}
-                </button>
-              ))}
+        <div className="playmat page-mat">
+          {acct.loaded && acct.enabled && !signedIn ? (
+            <div className="decks-banner" data-testid="decks-login">
+              <p>
+                <strong>These decks only live in this browser.</strong> Clearing it, or another device, loses them. A free account keeps them everywhere: no password, just your email.
+              </p>
+              <button type="button" className="btn btn--brass" onClick={() => setLogin(true)}>
+                Save them to an account
+              </button>
             </div>
-          </div>
-        ) : null}
+          ) : null}
+          {signedIn && local.length ? (
+            <div className="decks-banner">
+              <p>
+                {local.length} deck{local.length === 1 ? " is" : "s are"} only in this browser.
+              </p>
+              <button type="button" className="btn btn--brass" onClick={() => void move(local)} disabled={moving} data-testid="import-decks">
+                {moving ? "Moving…" : "Move to my account"}
+              </button>
+            </div>
+          ) : null}
+          {note ? (
+            <p className="decks-note" role="status">
+              {note}
+            </p>
+          ) : null}
+          {error ? <p className="error">{error}</p> : null}
 
-        {acct.loaded && !(signedIn && cloud === null) && !total ? (
-          <section className="decks-empty">
-            <h2>No decks yet</h2>
-            <p>Pick five cards you love and Claude builds the other 95. Every deck you build lands here.</p>
-            <a className="btn btn--brass btn--big" href="/">
-              Build your first deck
-            </a>
-          </section>
-        ) : null}
+          {total > 6 ? (
+            <div className="decks-tools">
+              <input className="field" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a deck or commander" aria-label="Find a deck" />
+              <div className="viewswitch" role="group" aria-label="Sort">
+                {(
+                  [
+                    ["new", "Newest"],
+                    ["name", "A–Z"],
+                  ] as [Sort, string][]
+                ).map(([s, label]) => (
+                  <button key={s} type="button" className={`viewswitch-btn ${sort === s ? "is-on" : ""}`} aria-pressed={sort === s} onClick={() => setSort(s)}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
-        <ul className="decks-grid" data-testid="my-decks" aria-busy={!acct.loaded || (signedIn && cloud === null) || undefined}>
-          {!acct.loaded || (signedIn && cloud === null && !error)
-            ? [0, 1, 2].map((i) => (
-                <li key={`loading-${i}`} className="deckcard deckcard--loading" aria-hidden>
-                  <span className="deckcard-art" />
-                  <span className="deckcard-body">
-                    <span className="sk sk--title" />
-                    <span className="sk" />
-                    <span className="sk sk--short" />
-                  </span>
-                </li>
-              ))
-            : null}
-          {list.map((d) => (
-            <DeckCardItem key={d.id} deck={d} onChange={(patch) => update(d, patch)} onError={setError} />
-          ))}
-        </ul>
-        {query && !list.length && total ? <p className="decks-sub">No deck matches &ldquo;{query}&rdquo;.</p> : null}
+          {acct.loaded && !(signedIn && cloud === null) && !total ? (
+            <section className="decks-empty">
+              <h2>No decks yet</h2>
+              <p>Pick five cards you love and Claude builds the other 95. Every deck you build lands here.</p>
+              <a className="btn btn--brass btn--big" href="/">
+                Build your first deck
+              </a>
+            </section>
+          ) : null}
+
+          <ul className="decks-grid" data-testid="my-decks" aria-busy={!acct.loaded || (signedIn && cloud === null) || undefined}>
+            {!acct.loaded || (signedIn && cloud === null && !error)
+              ? [0, 1, 2].map((i) => (
+                  <li key={`loading-${i}`} className="deckcard deckcard--loading" aria-hidden>
+                    <span className="deckcard-art" />
+                    <span className="deckcard-body">
+                      <span className="sk sk--title" />
+                      <span className="sk" />
+                      <span className="sk sk--short" />
+                    </span>
+                  </li>
+                ))
+              : null}
+            {list.map((d) => (
+              <DeckCardItem key={d.id} deck={d} onChange={(patch) => update(d, patch)} onError={setError} />
+            ))}
+          </ul>
+          {query && !list.length && total ? <p className="decks-sub">No deck matches &ldquo;{query}&rdquo;.</p> : null}
+        </div>
       </main>
       <LoginDialog
         open={login}
