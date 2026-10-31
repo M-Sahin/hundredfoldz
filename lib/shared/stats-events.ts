@@ -21,6 +21,10 @@ export const SERVER_EVENTS = {
   free_refused: ["used", "ip", "site"],
   key_check: ["ok", "bad"],
   key_saved: [],
+  /** a "Deal me 3" in the workshop, by whose key */
+  coach_deal: ["own", "saved", "free"],
+  /** the free-deal wall: why a visitor didn't get one */
+  coach_free_refused: ["used", "ip", "site"],
   deck_saved: ["account"],
   share_link: [],
   login_email: [],

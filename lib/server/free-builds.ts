@@ -7,27 +7,39 @@
 // - per account, when logged in (so logging in on a new device doesn't reset the count);
 // - per IP address per day (FREE_BUILDS_PER_IP_PER_DAY), so clearing cookies doesn't help much;
 // and the whole site has a daily cap (FREE_BUILDS_PER_DAY) that bounds what free builds can cost.
+//
+// Free deals (the workshop's "Deal me 3" card picks) are counted the same way under their own
+// keys (FREE_DEALS a visitor, per day rather than for good), and share the daily token budget.
 // Keys are hashed, like the rate limits: the store never holds ids, user ids or addresses.
 // A build that fails on our side is given back; a build the visitor stops is not.
 import { kvConfig } from "./store";
 import { COOKIE, cookie, isSecure, readCookies, tokenUser } from "./supabase";
 import { clientIp } from "./ratelimit";
+import { COACH_MODEL } from "../shared/coach";
 
 export const DEVICE_COOKIE = "hf_dev";
 const DEVICE_ID = /^[A-Za-z0-9_-]{22,64}$/;
 const YEAR = 365 * 24 * 3600;
 const DAY = 24 * 3600;
 
-export interface FreeConfig {
-  /** builds per visitor; 0 = off */
+/** What's counted, and the limits. */
+export interface Quota {
+  /** "free": free builds, counted for good (the default); "deal": free card picks, counted per day */
+  scope?: "free" | "deal";
+  /** per visitor; 0 = off */
   perVisitor: number;
   perIpPerDay: number;
   perDay: number;
-  /** tokens the free builds may use per day, all visitors together (input, output and cache) */
+  /** tokens free builds and free deals may use per day, all visitors together (input, output and cache) */
   tokensPerDay: number;
   model: string;
+}
+
+export interface FreeConfig extends Quota {
   effort: string;
 }
+
+const tokensPerDay = () => Math.max(100_000, Number(process.env.FREE_TOKENS_PER_DAY) || 150_000_000);
 
 export function freeConfig(): FreeConfig | null {
   if (!process.env.ANTHROPIC_API_KEY?.trim() || process.env.DEMO_MODE === "1") return null;
@@ -38,9 +50,24 @@ export function freeConfig(): FreeConfig | null {
     perVisitor,
     perIpPerDay: Math.max(1, Number(process.env.FREE_BUILDS_PER_IP_PER_DAY) || 10),
     perDay: Math.max(1, Number(process.env.FREE_BUILDS_PER_DAY) || 300),
-    tokensPerDay: Math.max(100_000, Number(process.env.FREE_TOKENS_PER_DAY) || 150_000_000),
+    tokensPerDay: tokensPerDay(),
     model: process.env.FREE_MODEL?.trim() || "claude-haiku-5-5",
     effort: ["low", "medium", "high", "xhigh", "max"].includes(effort) ? effort : "high",
+  };
+}
+
+/** Free deals in the workshop: FREE_DEALS a visitor a day on the site's key (Claude Haiku). Off unless set. */
+export function freeDealsConfig(): Quota | null {
+  if (!process.env.ANTHROPIC_API_KEY?.trim() || process.env.DEMO_MODE === "1") return null;
+  const perVisitor = Math.max(0, Math.floor(Number(process.env.FREE_DEALS) || 0));
+  if (!perVisitor) return null;
+  return {
+    scope: "deal",
+    perVisitor,
+    perIpPerDay: Math.max(1, Number(process.env.FREE_DEALS_PER_IP_PER_DAY) || perVisitor * 3),
+    perDay: Math.max(1, Number(process.env.FREE_DEALS_PER_DAY) || 2000),
+    tokensPerDay: tokensPerDay(),
+    model: COACH_MODEL,
   };
 }
 
@@ -80,14 +107,16 @@ export function visitor(request: Request): Visitor {
 
 const dayNumber = (now: number) => Math.floor(now / 1000 / DAY);
 
-async function counterKeys(v: Visitor, now: number) {
+async function counterKeys(v: Visitor, now: number, scope: Quota["scope"] = "free") {
   const day = dayNumber(now);
+  // free builds count a visitor for good; free deals count them per day
+  const per = scope === "deal" ? { p: `hf:deal`, mine: `${day}:`, ttl: 2 * DAY } : { p: "hf:free", mine: "", ttl: YEAR };
   const keys: { key: string; ttl: number; kind: "visitor" | "ip" | "site" }[] = [
-    { key: `hf:free:dev:${await hash(v.device)}`, ttl: YEAR, kind: "visitor" },
-    { key: `hf:free:ip:${day}:${await hash(v.ip)}`, ttl: 2 * DAY, kind: "ip" },
-    { key: `hf:free:day:${day}`, ttl: 2 * DAY, kind: "site" },
+    { key: `${per.p}:dev:${per.mine}${await hash(v.device)}`, ttl: per.ttl, kind: "visitor" },
+    { key: `${per.p}:ip:${day}:${await hash(v.ip)}`, ttl: 2 * DAY, kind: "ip" },
+    { key: `${per.p}:day:${day}`, ttl: 2 * DAY, kind: "site" },
   ];
-  if (v.user) keys.push({ key: `hf:free:user:${await hash(v.user)}`, ttl: YEAR, kind: "visitor" });
+  if (v.user) keys.push({ key: `${per.p}:user:${per.mine}${await hash(v.user)}`, ttl: per.ttl, kind: "visitor" });
   return keys;
 }
 
@@ -158,10 +187,10 @@ export interface FreeStatus {
   blocked?: "ip" | "site";
 }
 
-/** How many free builds this visitor has left (doesn't count anything). */
-export async function freeStatus(cfg: FreeConfig, v: Visitor, deps: { now?: number; fetch?: Fetch } = {}): Promise<FreeStatus> {
+/** How many free builds (or today's free deals) this visitor has left (doesn't count anything). */
+export async function freeStatus(cfg: Quota, v: Visitor, deps: { now?: number; fetch?: Fetch } = {}): Promise<FreeStatus> {
   const now = deps.now ?? Date.now();
-  const keys = await counterKeys(v, now);
+  const keys = await counterKeys(v, now, cfg.scope);
   const counts = await read(keys.map((k) => k.key), now, deps.fetch);
   const used = Math.max(0, ...counts.filter((_, i) => keys[i].kind === "visitor"));
   const ip = counts[keys.findIndex((k) => k.kind === "ip")];
@@ -196,12 +225,12 @@ export async function spendFreeTokens(n: number, deps: { now?: number; fetch?: F
  * Count one free build, if every limit allows it. `refund` gives the visitor's build back when it
  * failed; the address and site-wide counts stay, so failing builds on purpose can't run up the bill.
  */
-export async function claimFreeBuild(cfg: FreeConfig, v: Visitor, deps: { now?: number; fetch?: Fetch } = {}): Promise<Claim> {
+export async function claimFreeBuild(cfg: Quota, v: Visitor, deps: { now?: number; fetch?: Fetch } = {}): Promise<Claim> {
   const now = deps.now ?? Date.now();
-  // the daily token budget: once today's free builds have used it, there are none left today
+  // the daily token budget: once today's free builds and deals have used it, there are none left today
   const [tokens] = await read([tokenKey(now)], now, deps.fetch);
   if (tokens >= cfg.tokensPerDay) return { ok: false, reason: "site" };
-  const keys = await counterKeys(v, now);
+  const keys = await counterKeys(v, now, cfg.scope);
   const counts = await add(keys, 1, now, deps.fetch);
   const over = (i: number) => {
     const k = keys[i].kind;
@@ -231,7 +260,13 @@ export async function claimFreeBuild(cfg: FreeConfig, v: Visitor, deps: { now?: 
   };
 }
 
-export function freeRefusal(reason: "used" | "ip" | "site", cfg: FreeConfig): string {
+export function dealRefusal(reason: "used" | "ip" | "site", cfg: Quota): string {
+  if (reason === "used") return `You've used today's ${cfg.perVisitor === 1 ? "free deal" : `${cfg.perVisitor} free deals`}. Add your own Claude API key for more, or come back tomorrow.`;
+  if (reason === "ip") return "Free deals from your network are used up for today. Add your own Claude API key, or try again tomorrow.";
+  return "Today's free deals are all used up. Add your own Claude API key, or try again tomorrow.";
+}
+
+export function freeRefusal(reason: "used" | "ip" | "site", cfg: Quota): string {
   if (reason === "used") return `You've used your ${cfg.perVisitor === 1 ? "free build" : `${cfg.perVisitor} free builds`}. Add your own Claude API key to keep building.`;
   if (reason === "ip") return "Free builds from your network are used up for today. Add your own Claude API key, or try again tomorrow.";
   return "Today's free builds are all used up. Add your own Claude API key, or try again tomorrow.";

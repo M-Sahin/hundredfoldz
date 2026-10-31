@@ -1,6 +1,7 @@
 "use client";
 import type { CardInfo, Color, GenerateRequest, StreamEvent, Usage } from "../shared/types";
 import type { PublicConfig } from "../server/config";
+import type { CoachEvent, CoachRequest } from "../shared/coach";
 
 export type { PublicConfig };
 
@@ -47,6 +48,48 @@ export async function searchCards(s: CardSearch, signal?: AbortSignal): Promise<
   const j = await r.json();
   if (!r.ok) throw new Error(j.error ?? "Search failed");
   return j;
+}
+
+/** A failed request, with the server's code ("needs_key": card picks need the visitor's own key). */
+export class ApiError extends Error {
+  constructor(message: string, public code?: string) {
+    super(message);
+  }
+}
+
+/**
+ * The workshop's "Deal me 3": three checked cards, streamed one by one. On the visitor's own key, or
+ * (no key, `turnstile` set) one of the site's free deals.
+ */
+export async function* coachDeal(req: CoachRequest, auth: { apiKey?: string; savedKey?: boolean; turnstile?: string }, signal: AbortSignal): AsyncGenerator<CoachEvent> {
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (auth.apiKey) headers["x-anthropic-key"] = auth.apiKey;
+  else if (auth.savedKey) headers["x-use-saved-key"] = "1";
+  const body = auth.apiKey || auth.savedKey ? req : { ...req, turnstile: auth.turnstile };
+  const r = await fetch("/api/coach", { method: "POST", headers, body: JSON.stringify(body), signal });
+  if (!r.ok || !r.body) {
+    const j = await r.json().catch(() => ({}));
+    throw new ApiError(j.error ?? `Card picks failed (${r.status})`, j.code);
+  }
+  yield* ndjson(r.body);
+}
+
+export interface FreeDeals {
+  enabled: boolean;
+  limit?: number;
+  remaining?: number;
+  /** why there are none left when it isn't this visitor's own count */
+  blocked?: "ip" | "site";
+}
+
+/** Today's free deals for this visitor ({ enabled: false } when the site gives none). */
+export async function freeDeals(): Promise<FreeDeals> {
+  try {
+    const r = await fetch("/api/coach", { cache: "no-store" });
+    return r.ok ? await r.json() : { enabled: false };
+  } catch {
+    return { enabled: false };
+  }
 }
 
 async function* ndjson(body: ReadableStream<Uint8Array>): AsyncGenerator<any> {

@@ -9,7 +9,7 @@ import { serverConfig } from "./config";
 import { DEMO_SEEDS, demoCaller } from "./demo";
 import { claimFreeBuild, freeRefusal, freeStatus, spendFreeTokens, visitor } from "./free-builds";
 import { turnstileError, verifyTurnstile } from "./turnstile";
-import { savedKeyFor } from "./account-handler";
+import { keyTag, ownKey } from "./build-access";
 import { count, modelFamily, timeBucket } from "./stats";
 import type { Budget, GenerateRequest, StreamEvent } from "../shared/types";
 import { MAX_COLLECTION } from "../shared/types";
@@ -20,11 +20,6 @@ export { KEY_PATTERN };
 /** Best-effort client address (behind Vercel or a reverse proxy). */
 export { clientIp };
 
-/** Short, non-reversible tag for a key, so limits can be per key instead of per shared IP. */
-async function keyTag(key: string): Promise<string> {
-  const h = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key)));
-  return [...h.slice(0, 8)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
 
 const MAX_BODY = 1_500_000; // a 5000-card collection fits comfortably
 const FREE_COLLECTION = 1_000;
@@ -139,23 +134,14 @@ export async function handleGenerate(request: Request, override?: GenerateOverri
   const cfg = serverConfig();
   const ip = clientIp(request);
   if (Number(request.headers.get("content-length") ?? 0) > MAX_BODY) return Response.json({ error: "Request too large." }, { status: 413 });
-  // the visitor's own key: used for this build only, never stored or logged
-  let userKey = (request.headers.get("x-anthropic-key") ?? "").trim();
-  // or the key saved to the visitor's account (sealed on the server; the browser never has it)
-  let savedModel: string | null = null;
-  let savedCookies: string[] = [];
-  let fromSaved = false;
-  if (!userKey && request.headers.get("x-use-saved-key") === "1") {
-    const saved = await savedKeyFor(request);
-    if (!saved) return Response.json({ error: "The key saved to your account couldn't be used. Log in again, or add your key again.", code: "saved_key" }, { status: 400 });
-    userKey = saved.key;
-    fromSaved = true;
-    savedModel = saved.model;
-    savedCookies = saved.setCookies;
-  }
+  // the visitor's own key (used for this build only, never stored or logged), or the account's saved key
+  const own = await ownKey(request, cfg.ownKeys);
+  if (own instanceof Response) return own;
+  const userKey = own?.key ?? "";
+  const fromSaved = !!own?.fromSaved;
+  const savedModel = own?.savedModel ?? null;
+  const savedCookies = own?.setCookies ?? [];
   if (userKey) {
-    if (!cfg.ownKeys) return Response.json({ error: "This site doesn't accept personal API keys." }, { status: 403 });
-    if (!KEY_PATTERN.test(userKey)) return Response.json({ error: "That doesn't look like a Claude API key (they start with sk-ant-)." }, { status: 400 });
     const r = await rateLimitAll([
       [LIMITS.buildOwnKey(cfg.ownKeyBuildsPerHour), await keyTag(userKey)],
       [LIMITS.buildOwnKeyIp, ip],
