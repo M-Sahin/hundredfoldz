@@ -1729,6 +1729,10 @@ button.card {
   width: 100%;
   box-shadow: 0 40px 90px rgba(0, 0, 0, 0.6);
 }
+/* the card view focuses itself on opening (so it starts at its top); no ring around the whole box */
+.modal:focus {
+  outline: none;
+}
 .modal::backdrop {
   background: rgba(5, 7, 20, 0.72);
   backdrop-filter: blur(3px);
