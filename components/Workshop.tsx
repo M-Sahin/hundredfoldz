@@ -17,7 +17,7 @@ import { KeySheet } from "./BuildAccess";
 import type { KeyState } from "./KeyPanel";
 import { COACH_SLOTS, type CoachSlot } from "../lib/shared/coach";
 import { analyzeDeck, guessRole } from "../lib/shared/analysis";
-import { validateDeck } from "../lib/shared/validate";
+import { pairingAbilities, validateDeck } from "../lib/shared/validate";
 import { simulateOpeners } from "../lib/shared/openers";
 import { ROLE_COLORS, byRole, exportText, price } from "../lib/shared/deck-utils";
 import { money } from "../lib/shared/currency";
@@ -50,7 +50,7 @@ import {
   type UndoStep,
   type WorkshopDeck,
 } from "../lib/shared/workshop";
-import { cardByName, freeDeals, handoff, randomCard, resolveDeck, searchCards, type FreeDeals } from "../lib/client/api";
+import { cardByName, commanderNames, freeDeals, handoff, partnerNames, randomCard, resolveDeck, searchCards, type FreeDeals } from "../lib/client/api";
 import { useHumanCheck } from "./useHumanCheck";
 import { saveToMyDecks, workshopDraft } from "../lib/client/workshop";
 import { useCurrency } from "../lib/client/currency";
@@ -175,6 +175,8 @@ export default function Workshop() {
   const notes = useMemo(() => coachNotes(ws, validation, checks), [ws, validation, checks]);
   const total = workshopTotal(ws);
   const problems = validation.errors.filter((e) => !/^Deck has \d+ cards/.test(e));
+  // the same list each render, so the partner picker doesn't search again whenever the page updates
+  const partnerExclude = useMemo(() => [ws.commander?.name ?? ""], [ws.commander?.name]);
 
   const say = (t: Toast) => {
     clearTimeout(toastTimer.current);
@@ -367,7 +369,15 @@ export default function Workshop() {
           </section>
           <section className="mat ws-pick" aria-label="Pick your commander">
             <h2>{ws.commander ? "Pick a new commander" : "Who leads the deck?"}</h2>
-            <CardSearch exclude={[]} onClose={() => {}} onPick={(n) => void pickCommander(n)} placeholder="Type a commander's name" />
+            <CardSearch
+              exclude={[]}
+              onClose={() => {}}
+              onPick={(n) => void pickCommander(n)}
+              placeholder="Type a commander's name"
+              suggest={commanderNames}
+              delay={250}
+              empty="No commander by that name. Check the spelling, or try Surprise me."
+            />
             <div className="ws-pick-actions">
               <button type="button" className="btn" onClick={() => void surprise()} data-testid="ws-surprise">
                 Surprise me
@@ -401,6 +411,7 @@ export default function Workshop() {
   }
 
   const identity = workshopIdentity(ws);
+  const pairsWithBackground = pairingAbilities(ws.commander).choosesBackground;
   const step = claudeStep(ws);
   const ownKey = !!key.key || !!key.saved;
   const freeLeft = deals?.enabled ? (deals.remaining ?? 0) : 0;
@@ -425,7 +436,7 @@ export default function Workshop() {
                 {ws.partner ? ` and ${ws.partner.name}` : ""}
               </p>
               <p className="ws-cmd-actions">
-                <button type="button" className="link" onClick={() => setPicking("commander")}>
+                <button type="button" className="link" onClick={() => setPicking("commander")} data-testid="ws-change-commander">
                   Change commander
                 </button>
                 {ws.partner ? (
@@ -433,14 +444,23 @@ export default function Workshop() {
                     Remove partner
                   </button>
                 ) : canPair(ws.commander) ? (
-                  <button type="button" className="link" onClick={() => setPicking(picking === "partner" ? null : "partner")} aria-expanded={picking === "partner"}>
+                  <button type="button" className="link" onClick={() => setPicking(picking === "partner" ? null : "partner")} aria-expanded={picking === "partner"} data-testid="ws-add-partner">
                     Add a partner
                   </button>
                 ) : null}
               </p>
               {picking === "partner" ? (
                 <div className="ws-partner">
-                  <CardSearch exclude={[ws.commander.name]} onClose={() => setPicking(null)} onPick={(n) => void pickPartner(n)} placeholder="Type the second commander" />
+                  <CardSearch
+                    exclude={partnerExclude}
+                    onClose={() => setPicking(null)}
+                    onPick={(n) => void pickPartner(n)}
+                    placeholder={pairsWithBackground ? "Type a Background's name" : "Type the second commander"}
+                    suggest={(q, signal) => partnerNames(ws.commander!.name, q, signal)}
+                    minChars={0}
+                    delay={250}
+                    empty={`Nothing by that name can pair with ${ws.commander.name.split(",")[0]}.`}
+                  />
                 </div>
               ) : null}
             </div>

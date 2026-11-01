@@ -93,11 +93,12 @@ export function setCommander(ws: WorkshopDeck, c: CardInfo): WorkshopDeck {
   return { ...ws, commander: c, partner, cards: ws.cards.filter((x) => !same(x.name, c.name)) };
 }
 
-/** Can this commander have a second one (Partner, Friends forever, Background…)? */
+/** Can this commander have a second one (Partner, Friends forever, Background, a Doctor's companion…)? */
 export function canPair(c: CardInfo | null): boolean {
   if (!c) return false;
   const p = pairingAbilities(c);
-  return p.partner || !!p.partnerWith || !!p.partnerGroup || p.friendsForever || p.choosesBackground || p.doctorsCompanion;
+  // a Doctor can lead with a Doctor's companion, the other way round from the companion's ability
+  return p.partner || !!p.partnerWith || !!p.partnerGroup || p.friendsForever || p.choosesBackground || p.doctorsCompanion || p.isDoctor;
 }
 
 /** Why these two can't share the command zone, or null. */
