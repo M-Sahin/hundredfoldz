@@ -48,9 +48,9 @@ const workshopDeck = async (p) => {
   const total = await p.textContent("[data-testid=ws-total]");
   console.log(`workshop: ${total} cards after 3 picks and the basic lands`);
 };
-// a stand-in for /api/coach (CI has no Claude): free deals on, a scripted deck plan whose searches
-// are real Scryfall searches (tapping a theme runs one), and a scripted card verdict whose better
-// card is real Scryfall data
+// a scripted deck plan and card verdict for the /api/coach stand-in below (CI has no Claude): themes
+// whose searches are real Scryfall searches (tapping a theme runs one), and a better card that is
+// real Scryfall data
 const fakeCoach = async (route) => {
   const req = route.request();
   if (req.method() === "GET") return route.fulfill({ json: { enabled: true, limit: 5, used: 0, remaining: 5, model: "claude-haiku-5-5" } });
@@ -70,6 +70,49 @@ const fakeCoach = async (route) => {
       ? [{ type: "status", text: "Checking the searches on Scryfall" }, ...themes.map((theme) => ({ type: "theme", theme })), usage, { type: "done", ms: 5000, picks: themes.length }]
       : [{ type: "status", text: "Claude couldn't find cards that fit" }, usage, { type: "done", ms: 3000, picks: 0 }];
   await route.fulfill({ status: 200, contentType: "application/x-ndjson; charset=utf-8", body: lines.map((l) => JSON.stringify(l)).join("\n") + "\n" });
+};
+// the workshop's pickers: a commander from its name, then (when it can have one) the partner picker
+const CMD_PICKER = "[aria-label=\"Type a commander's name\"]";
+const pickCommander = async (p, name) => {
+  await p.fill(CMD_PICKER, name);
+  await p.waitForFunction((n) => [...document.querySelectorAll(".search-list [role=option]")].some((o) => o.textContent === n), name, { timeout: 15000 });
+  await p.keyboard.press("Enter");
+  await p.waitForSelector("[data-testid=ws-total]", { timeout: 15000 });
+};
+const openPartnerPicker = async (p) => {
+  await p.click("[data-testid=ws-add-partner]");
+  await p.waitForSelector(".ws-partner .search-list [role=option]", { timeout: 15000 });
+};
+// "Deal me 3" without Claude: GET /api/coach says the site gives free deals (so the workshop shows
+// the deal buttons), and the deal itself (POST) is a scripted NDJSON stream in the format
+// coach-handler.ts sends (CoachEvent lines), with real cards looked up through the app (Scryfall).
+// Cards already in the deck or passed on are skipped, like the real thing.
+const STAND_IN_PICKS = ["Beast Within", "Assassin's Trophy", "Putrefy", "Pernicious Deed", "Golgari Charm", "Maelstrom Pulse"];
+const pickInfo = new Map();
+const standInDeals = async (p, onDeal = () => {}) => {
+  await p.route("**/api/coach", async (route) => {
+    if (route.request().method() !== "POST") return route.fulfill({ json: { enabled: true, limit: 3, remaining: 3 } });
+    if (["plan", "verdict"].includes(route.request().postDataJSON()?.mode)) return fakeCoach(route); // a deck plan or a verdict: scripted above
+    const req = route.request().postDataJSON();
+    onDeal(req);
+    const skip = new Set([...req.cards.map((c) => c.name), ...req.passed].map((n) => n.toLowerCase()));
+    const names = STAND_IN_PICKS.filter((n) => !skip.has(n.toLowerCase())).slice(0, 3);
+    const lines = [{ type: "status", text: "Claude is looking for cards" }];
+    for (const name of names) {
+      if (!pickInfo.has(name)) pickInfo.set(name, (await (await fetch(`${base}/api/cards/named?name=${encodeURIComponent(name)}`)).json()).card);
+      lines.push({ type: "pick", card: pickInfo.get(name), why: "A stand-in pick for the browser check: no Claude call was made." });
+    }
+    lines.push({ type: "done", ms: 900, picks: names.length });
+    await route.fulfill({ status: 200, headers: { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-store" }, body: lines.map((l) => JSON.stringify(l)).join("\n") + "\n" });
+  });
+};
+// open "Deal me 3" (the first slot offered) and wait for the three cards
+const dealThree = async (p) => {
+  if (await p.locator("[data-testid=ws-tab-checks]").isVisible()) await p.click("[data-testid=ws-tab-checks]");
+  await p.locator(".ws-deal-slots button").first().click({ timeout: 15000 });
+  await p.waitForSelector("[data-testid=card-picks][open]", { timeout: 10000 });
+  // a free deal waits for the bot check's token first (the test keys pass), then the stream
+  await p.waitForFunction(() => document.querySelectorAll("[data-testid=card-picks] [data-testid=pick]").length === 3, null, { timeout: 45000 });
 };
 // the deck plan: sketch one, then tap its first theme (the search runs on real Scryfall)
 const workshopPlan = async (p) => {
@@ -841,11 +884,20 @@ await run("40-phone-sweep", { width: 360, height: 740 }, async (p) => {
     await p.click("[data-testid=deck-more]");
     await p.click("[data-testid=deck-delete]");
   });
-  await p.route("**/api/coach", fakeCoach);
+  await standInDeals(p);
   await step("workshop commander", async () => p.goto(`${base}/workshop`, { waitUntil: "networkidle" }));
+  await step("workshop commander picker", async () => {
+    await p.fill(CMD_PICKER, "llanowar");
+    await p.waitForSelector(".search-list [role=option]", { timeout: 15000 });
+  });
   await step("workshop paste box", async () => p.click("[data-testid=ws-import-open]"));
   await step("workshop deck", async () => workshopDeck(p));
   await step("workshop search", async () => p.click("[data-testid=ws-tab-search]"));
+  await step("workshop more results", async () => {
+    const before = await p.locator("[data-testid=ws-results] > li").count();
+    await p.click("[data-testid=ws-more]");
+    await p.waitForFunction((n) => document.querySelectorAll("[data-testid=ws-results] > li").length > n, before, { timeout: 20000 });
+  });
   await step("workshop plan", async () => workshopPlan(p));
   await step("workshop checks", async () => p.click("[data-testid=ws-tab-checks]"));
   await step("workshop numbers", async () => {
@@ -857,8 +909,33 @@ await run("40-phone-sweep", { width: 360, height: 740 }, async (p) => {
     await p.locator(".ws-card-name").first().click();
   });
   await p.keyboard.press("Escape");
+  await step("workshop card picks", async () => {
+    await dealThree(p);
+    // the page check skips what's inside a dialog (it scrolls), so check the dialog's own edges too
+    await p.waitForTimeout(800);
+    const d = await p.evaluate(() => {
+      const dlg = document.querySelector("[data-testid=card-picks]");
+      const box = dlg.getBoundingClientRect();
+      const out = [...dlg.querySelectorAll("*")]
+        .filter((e) => {
+          const r = e.getBoundingClientRect();
+          return r.width && r.height && (r.right > box.right + 1 || r.left < box.left - 1);
+        })
+        .map((e) => `${e.tagName.toLowerCase()}.${String(e.className).split(" ")[0]}`);
+      return { left: Math.round(box.left), right: Math.round(box.right), sideways: dlg.scrollWidth - dlg.clientWidth, out: [...new Set(out)].slice(0, 6) };
+    });
+    console.log(`card picks at 360px: dialog ${d.left}–${d.right}px, scrolls sideways ${d.sideways}px${d.out.length ? `, sticking out: ${d.out.join(", ")}` : ""}`);
+    if (d.left < 0 || d.right > 360 || d.sideways > 1 || d.out.length) errors.push(`phone sweep, workshop card picks: the dialog doesn't fit (${JSON.stringify(d)})`);
+    await p.screenshot({ path: `${out}/40b-phone-card-picks.png` });
+  });
+  await p.keyboard.press("Escape");
   await step("workshop card verdict", async () => workshopVerdict(p));
   await p.keyboard.press("Escape");
+  await step("workshop partner picker", async () => {
+    await p.click("[data-testid=ws-change-commander]");
+    await pickCommander(p, "Karlach, Fury of Avernus");
+    await openPartnerPicker(p);
+  });
   await step("bracket checker", async () => p.goto(`${base}/bracket`, { waitUntil: "load" }));
   await step("box EV", async () => p.goto(`${base}/ev`, { waitUntil: "networkidle" }));
   await step("a box", async () => p.goto(`${base}${evFirst || "/ev/dsk-play"}`, { waitUntil: "networkidle" }));
@@ -872,14 +949,27 @@ await run("7-mobile-setup", { width: 390, height: 844 }, async (p) => {
   if (overflow > 1) errors.push(`setup page scrolls sideways on a phone (${overflow}px)`);
 });
 await run("8-mobile-result", { width: 390, height: 844 }, toResult);
-await run("45-workshop", { width: 1440, height: 1000 }, workshopDeck);
+await run("45-workshop", { width: 1440, height: 1000 }, async (p) => {
+  await workshopDeck(p);
+  // Show more adds the next 40 under the first ones, none of them twice
+  await p.fill("[data-testid=ws-q]", "");
+  await p.click("[data-testid=ws-slot-removal]");
+  await p.waitForSelector("[data-testid=ws-more]", { timeout: 20000 });
+  const before = await p.locator("[data-testid=ws-results] > li").count();
+  await p.click("[data-testid=ws-more]");
+  await p.waitForFunction((n) => document.querySelectorAll("[data-testid=ws-results] > li").length > n, before, { timeout: 20000 }).catch(() => {});
+  const names = await p.locator("[data-testid=ws-results] .ws-result-name").allTextContents();
+  console.log(`workshop search: ${before} results, ${names.length} after Show more`);
+  if (names.length <= before) errors.push(`Show more didn't add results in the workshop search (${before} before, ${names.length} after)`);
+  if (new Set(names).size !== names.length) errors.push("Show more repeated a card in the workshop search");
+});
 await run("48-workshop-plan", { width: 1440, height: 1000 }, async (p) => {
-  await p.route("**/api/coach", fakeCoach);
+  await standInDeals(p);
   await workshopDeck(p);
   await workshopPlan(p);
 });
 await run("49-workshop-verdict", { width: 1440, height: 1000 }, async (p) => {
-  await p.route("**/api/coach", fakeCoach);
+  await standInDeals(p);
   await workshopDeck(p);
   await workshopVerdict(p);
 });
@@ -896,6 +986,46 @@ await run("47-workshop-paste", { width: 1440, height: 1000 }, async (p) => {
   console.log(`workshop paste: ${total} cards; ${left}`);
   if (total !== "25") errors.push(`a pasted list opened with ${total} cards in the workshop, not 25`);
   if (!/Not A Real Card/.test(left ?? "")) errors.push("the workshop doesn't say which pasted cards were left out");
+});
+// the commander picker offers only cards that can be commanders, and the partner picker only cards
+// that can pair with the commander (real Scryfall; each offered card is looked up again to check)
+await run("48-workshop-pickers", { width: 1440, height: 1000 }, async (p) => {
+  const card = async (n) => (await (await fetch(`${base}/api/cards/named?name=${encodeURIComponent(n)}`)).json()).card;
+  await p.goto(`${base}/workshop`, { waitUntil: "networkidle" });
+  await p.fill(CMD_PICKER, "llanowar");
+  await p.waitForSelector(".search-list [role=option]", { timeout: 15000 });
+  const offered = await p.locator(".search-list [role=option]").allTextContents();
+  console.log(`workshop commander picker, "llanowar": ${offered.join(", ")}`);
+  if (offered.includes("Llanowar Elves")) errors.push("the workshop's commander picker offers Llanowar Elves");
+  for (const n of offered) if (!(await card(n))?.canBeCommander) errors.push(`the workshop's commander picker offers ${n}, which can't be a commander`);
+  // Karlach chooses a Background: Backgrounds only
+  await pickCommander(p, "Karlach, Fury of Avernus");
+  await openPartnerPicker(p);
+  const partners = await p.locator(".ws-partner .search-list [role=option]").allTextContents();
+  console.log(`workshop partner picker for Karlach: ${partners.join(", ")}`);
+  for (const n of partners) if (!/\bBackground\b/.test((await card(n))?.typeLine ?? "")) errors.push(`the workshop's partner picker offers ${n} for Karlach, which isn't a Background`);
+  await p.locator(".ws-partner .search-list [role=option]").first().click();
+  await p.waitForFunction(() => / and /.test(document.querySelector(".ws-cmd-line")?.textContent ?? ""), null, { timeout: 15000 }).catch(() => errors.push("picking a Background in the workshop's partner picker didn't add it"));
+});
+// "Deal me 3" on a free deal (Claude stood in, real cards): three cards show, and keeping one adds it
+await run("48-workshop-card-picks", { width: 1440, height: 1000 }, async (p) => {
+  const deals = [];
+  await standInDeals(p, (req) => deals.push(req));
+  await workshopDeck(p);
+  const before = Number(await p.textContent("[data-testid=ws-total]"));
+  await dealThree(p);
+  const names = await p.locator("[data-testid=card-picks] [data-testid=pick] h3").allInnerTexts();
+  const first = names[0];
+  await p.locator("[data-testid=card-picks] [data-testid=pick-keep]").first().click();
+  await p.waitForFunction((n) => Number(document.querySelector("[data-testid=ws-total]")?.textContent) === n, before + 1, { timeout: 5000 }).catch(() => {});
+  const after = Number(await p.textContent("[data-testid=ws-total]"));
+  const kept = await p.locator("[data-testid=card-picks] [data-testid=pick-keep]").first().innerText();
+  const inDeck = await p.locator(".ws-card-name", { hasText: first }).count();
+  const req = deals[0] ?? {};
+  console.log(`card picks: ${names.join(" | ")}; asked for ${req.slot} with ${req.cards?.length} cards (free deal: ${"turnstile" in req}); kept ${first}: ${before} → ${after} cards, button "${kept}"`);
+  if (names.length !== 3) errors.push(`card picks showed ${names.length} cards, not 3`);
+  if (after !== before + 1 || !inDeck) errors.push(`keeping ${first} didn't add it to the deck (${before} → ${after}, in the list: ${inDeck})`);
+  if (!/In your deck/.test(kept)) errors.push(`the kept pick's button says "${kept}"`);
 });
 await run("46-workshop-phone", { width: 390, height: 844 }, async (p) => {
   await workshopDeck(p);

@@ -16,6 +16,20 @@ export async function autocomplete(q: string, signal?: AbortSignal): Promise<str
   return j.data ?? [];
 }
 
+/** Names of cards that can lead a Commander deck, for the workshop's commander picker. */
+export async function commanderNames(q: string, signal?: AbortSignal): Promise<string[]> {
+  const r = await fetch(`/api/cards/commanders?q=${encodeURIComponent(q)}`, { signal });
+  const j = await r.json();
+  return j.data ?? [];
+}
+
+/** Names of cards that can be the second commander next to `commander` (q may be empty). */
+export async function partnerNames(commander: string, q: string, signal?: AbortSignal): Promise<string[]> {
+  const r = await fetch(`/api/cards/commanders?with=${encodeURIComponent(commander)}&q=${encodeURIComponent(q)}`, { signal });
+  const j = await r.json();
+  return j.data ?? [];
+}
+
 export async function cardByName(name: string): Promise<CardInfo> {
   const r = await fetch(`/api/cards/named?name=${encodeURIComponent(name)}`);
   const j = await r.json();
@@ -40,10 +54,14 @@ export interface CardSearch {
   mv?: string;
 }
 
-/** The deck workshop's search: Commander-legal cards in these colors, most played first. */
-export async function searchCards(s: CardSearch, signal?: AbortSignal): Promise<{ total: number; cards: CardInfo[]; error?: string }> {
+/**
+ * The deck workshop's search: Commander-legal cards in these colors, most played first, 40 at a
+ * time. `from` is the `next` of the answer before (for "Show more"); `next` is null at the end.
+ */
+export async function searchCards(s: CardSearch, signal?: AbortSignal, from = 0): Promise<{ total: number; cards: CardInfo[]; next: number | null; error?: string }> {
   const p = new URLSearchParams({ id: s.colors.join("").toLowerCase() || "c" });
   for (const k of ["q", "slot", "type", "mv"] as const) if (s[k]) p.set(k, s[k]!);
+  if (from > 0) p.set("from", String(from));
   const r = await fetch(`/api/cards/search?${p}`, { signal });
   const j = await r.json();
   if (!r.ok) throw new Error(j.error ?? "Search failed");

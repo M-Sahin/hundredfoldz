@@ -20,7 +20,7 @@ import { KeySheet } from "./BuildAccess";
 import type { KeyState } from "./KeyPanel";
 import { pickSlots, type CardVerdict, type PickTarget, type PlanTheme } from "../lib/shared/coach";
 import { analyzeDeck, guessRole } from "../lib/shared/analysis";
-import { validateDeck } from "../lib/shared/validate";
+import { pairingAbilities, validateDeck } from "../lib/shared/validate";
 import { simulateOpeners } from "../lib/shared/openers";
 import { ROLE_COLORS, byRole, exportText, price } from "../lib/shared/deck-utils";
 import { money } from "../lib/shared/currency";
@@ -39,6 +39,8 @@ import {
   fillBasics,
   fromDeck,
   partnerProblem,
+  popUndo,
+  pushUndo,
   removeOne,
   sameCards,
   setCommander,
@@ -49,9 +51,10 @@ import {
   workshopIdentity,
   workshopTotal,
   type Check,
+  type UndoStep,
   type WorkshopDeck,
 } from "../lib/shared/workshop";
-import { cardByName, freeDeals, handoff, randomCard, resolveDeck, searchCards, type FreeDeals } from "../lib/client/api";
+import { cardByName, commanderNames, freeDeals, handoff, partnerNames, randomCard, resolveDeck, searchCards, type FreeDeals } from "../lib/client/api";
 import { useHumanCheck } from "./useHumanCheck";
 import { saveToMyDecks, workshopDraft } from "../lib/client/workshop";
 import { useCurrency } from "../lib/client/currency";
@@ -97,8 +100,12 @@ const MVS: [string, string][] = [
 interface Toast {
   text: string;
   tone: "good" | "bad";
-  undo?: WorkshopDeck;
+  /** Offer Undo for the change the toast is about (the newest undo step). */
+  undo?: boolean;
 }
+
+/** Ctrl/Cmd+Z goes to the page, not to a text field's own undo. */
+const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || !!t.closest("input, textarea, select"));
 
 export default function Workshop() {
   const [ws, setWs] = useState<WorkshopDeck>(EMPTY_WORKSHOP);
@@ -111,6 +118,8 @@ export default function Workshop() {
   const [leftOut, setLeftOut] = useState<string[]>([]); // a pasted list's cards Scryfall didn't know
   const [open, setOpen] = useState<DeckCard | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
+  // the last changes, newest last, for Undo; kept for this visit only (the deck itself survives a reload)
+  const [undo, setUndo] = useState<UndoStep[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<"account" | "browser" | "saving" | null>(null);
   // card picks: the visitor's own key (the key sheet loads a remembered one), the slot being dealt,
@@ -145,7 +154,10 @@ export default function Workshop() {
         const next = fromDeck(h.name ? { ...r.deck, name: h.name } : r.deck);
         setWs(next);
         // the deck from last time is replaced: say so, and offer it back
-        if (before.commander && before.cards.length && !sameCards(before, next)) say({ text: `Opened ${h.name ?? "your deck"}. Your earlier workshop deck was put aside.`, tone: "good", undo: before });
+        if (before.commander && before.cards.length && !sameCards(before, next)) {
+          setUndo((u) => pushUndo(u, before, `Opened ${h.name ?? "your deck"}`));
+          say({ text: `Opened ${h.name ?? "your deck"}. Your earlier workshop deck was put aside.`, tone: "good", undo: true });
+        }
       })
       .catch((e) => {
         setWs(before);
@@ -168,18 +180,42 @@ export default function Workshop() {
   const notes = useMemo(() => coachNotes(ws, validation, checks), [ws, validation, checks]);
   const total = workshopTotal(ws);
   const problems = validation.errors.filter((e) => !/^Deck has \d+ cards/.test(e));
+  // the same list each render, so the partner picker doesn't search again whenever the page updates
+  const partnerExclude = useMemo(() => [ws.commander?.name ?? ""], [ws.commander?.name]);
 
   const say = (t: Toast) => {
     clearTimeout(toastTimer.current);
     setToast(t);
     toastTimer.current = setTimeout(() => setToast(null), t.undo ? 6000 : 3500);
   };
-  const change = (next: WorkshopDeck, text?: string) => {
-    const prev = ws;
+  /** A change to the deck: `label` names it for Undo ("Added Sol Ring"), `text` is the toast, if any. */
+  const change = (next: WorkshopDeck, label: string, text?: string, kind?: string) => {
+    setUndo((u) => pushUndo(u, ws, label, kind));
     setWs(next);
     setSaved(null);
-    if (text) say({ text, tone: "good", undo: prev });
+    if (text) say({ text, tone: "good", undo: true });
+    else if (toast?.undo) setToast(null); // its Undo would now take back this change instead
   };
+  const undoLast = () => {
+    const u = popUndo(undo);
+    if (!u) return;
+    setUndo(u.rest);
+    setWs(u.step.deck);
+    setSaved(null);
+    setPicking(null);
+    say({ text: `Undone: ${u.step.label}.`, tone: "good" });
+  };
+  // Ctrl/Cmd+Z, unless the cursor is in a text field (it has its own undo) or a card or dialog is open
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== "z" || !(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+      if (typing(e.target) || open || dealing || keySheet || !undo.length) return;
+      e.preventDefault();
+      undoLast();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   const add = (c: CardInfo) => {
     const why = canAdd(ws, c);
@@ -187,9 +223,9 @@ export default function Workshop() {
     const next = addCard(ws, c);
     const role = next.cards.find((x) => x.name === c.name)?.role;
     const check = checks.find((k) => CHECK_SLOT[k.key] === role);
-    change(next, check ? `Added ${c.name}. ${check.label}: ${check.have + 1} of ${check.want[0]}–${check.want[1]}.` : `Added ${c.name}.`);
+    change(next, `Added ${c.name}`, check ? `Added ${c.name}. ${check.label}: ${check.have + 1} of ${check.want[0]}–${check.want[1]}.` : `Added ${c.name}.`);
   };
-  const remove = (name: string) => change(removeOne(ws, name), `Removed ${name}.`);
+  const remove = (name: string) => change(removeOne(ws, name), `Removed ${name}`, `Removed ${name}.`);
   // a verdict's better card: in place of the card when it's in the deck, else added instead of it
   const swapIn = (old: DeckCard, better: CardInfo) => {
     const has = ws.cards.some((c) => c.name.toLowerCase() === old.name.toLowerCase());
@@ -197,7 +233,7 @@ export default function Workshop() {
     const why = canAdd(base, better);
     if (why) return say({ text: why, tone: "bad" });
     const next = addCard(base, better);
-    change(next, has ? `Swapped ${old.name} for ${better.name}.` : `Added ${better.name}.`);
+    change(next, has ? `Swapped ${old.name} for ${better.name}` : `Added ${better.name}`, has ? `Swapped ${old.name} for ${better.name}.` : `Added ${better.name}.`);
     const added = next.cards.find((c) => c.name === better.name);
     setOpen(added ?? null);
   };
@@ -209,7 +245,7 @@ export default function Workshop() {
       const why = commanderProblem(c);
       if (why) return setError(why);
       if (!ws.commander) track("workshop|opened");
-      change(setCommander(ws, c));
+      change(setCommander(ws, c), `Changed the commander to ${c.name}`);
       setPicking(null);
     } catch (e) {
       setError((e as Error).message);
@@ -221,7 +257,7 @@ export default function Workshop() {
       const c = await cardByName(name);
       const why = partnerProblem(ws, c);
       if (why) return setError(why);
-      change(setPartner(ws, c));
+      change(setPartner(ws, c), `Added ${c.name} as partner`);
       setPicking(null);
     } catch (e) {
       setError((e as Error).message);
@@ -238,7 +274,7 @@ export default function Workshop() {
     setPane("deck");
     setLeftOut(notFound);
     setError(null);
-    if (ws.commander || ws.cards.length) change(next, `Opened your list: ${n} cards. Your earlier workshop deck was put aside.`);
+    if (ws.commander || ws.cards.length) change(next, "Opened your list", `Opened your list: ${n} cards. Your earlier workshop deck was put aside.`);
     else {
       setWs(next);
       setSaved(null);
@@ -263,7 +299,7 @@ export default function Workshop() {
     } catch {
       /* the checks still count them as lands by name */
     }
-    change(next, `Added ${r.added} basic land${r.added === 1 ? "" : "s"}, split by what your spells need.`);
+    change(next, `Added ${r.added} basic land${r.added === 1 ? "" : "s"}`, `Added ${r.added} basic land${r.added === 1 ? "" : "s"}, split by what your spells need.`);
   };
 
   const save = async () => {
@@ -293,26 +329,38 @@ export default function Workshop() {
 
   const startOver = () => {
     setLeftOut([]);
-    change(EMPTY_WORKSHOP, "Started over.");
+    change(EMPTY_WORKSHOP, "Started over", "Started over.");
   };
 
   const toastEl = toast ? (
     <div className={`ws-toast is-${toast.tone}`} role="status">
       <span>{toast.text}</span>
-      {toast.undo ? (
-        <button
-          type="button"
-          className="link"
-          onClick={() => {
-            setWs(toast.undo!);
-            setToast(null);
-          }}
-        >
+      {toast.undo && undo.length ? (
+        <button type="button" className="link" onClick={undoLast}>
           Undo
         </button>
       ) : null}
     </div>
   ) : null;
+
+  const lastStep = undo[undo.length - 1];
+  const undoButton = (
+    <button
+      type="button"
+      className="btn"
+      onClick={undoLast}
+      disabled={!lastStep}
+      title={lastStep ? `Undo: ${lastStep.label}` : "Nothing to undo yet"}
+      aria-label={lastStep ? `Undo: ${lastStep.label}` : "Undo"}
+      data-testid="ws-undo"
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M9 14L4 9l5-5" />
+        <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+      </svg>
+      Undo
+    </button>
+  );
 
   if (loading || !loaded) {
     return (
@@ -337,7 +385,15 @@ export default function Workshop() {
           </section>
           <section className="mat ws-pick" aria-label="Pick your commander">
             <h2>{ws.commander ? "Pick a new commander" : "Who leads the deck?"}</h2>
-            <CardSearch exclude={[]} onClose={() => {}} onPick={(n) => void pickCommander(n)} placeholder="Type a commander's name" />
+            <CardSearch
+              exclude={[]}
+              onClose={() => {}}
+              onPick={(n) => void pickCommander(n)}
+              placeholder="Type a commander's name"
+              suggest={commanderNames}
+              delay={250}
+              empty="No commander by that name. Check the spelling, or try Surprise me."
+            />
             <div className="ws-pick-actions">
               <button type="button" className="btn" onClick={() => void surprise()} data-testid="ws-surprise">
                 Surprise me
@@ -352,6 +408,8 @@ export default function Workshop() {
                   Keep {ws.commander.name}
                 </button>
               ) : null}
+              {/* after Start over, the way back to the deck */}
+              {!ws.commander && undo.length ? undoButton : null}
             </div>
             {importing ? <DecklistImport onOpen={openList} onCancel={() => setImporting(false)} /> : null}
             {error ? (
@@ -369,6 +427,7 @@ export default function Workshop() {
   }
 
   const identity = workshopIdentity(ws);
+  const pairsWithBackground = pairingAbilities(ws.commander).choosesBackground;
   const step = claudeStep(ws);
   const ownKey = !!key.key || !!key.saved;
   const freeLeft = deals?.enabled ? (deals.remaining ?? 0) : 0;
@@ -396,29 +455,38 @@ export default function Workshop() {
             <div className="ws-cmd-text">
               <label className="ws-name">
                 <span className="visually-hidden">Deck name</span>
-                <input value={ws.name} placeholder={deck.name} maxLength={120} onChange={(e) => change({ ...ws, name: e.target.value })} data-testid="ws-name" />
+                <input value={ws.name} placeholder={deck.name} maxLength={120} onChange={(e) => change({ ...ws, name: e.target.value }, "Renamed the deck", undefined, "name")} data-testid="ws-name" />
               </label>
               <p className="ws-cmd-line">
                 <IdentityPips colors={identity} /> {ws.commander.name}
                 {ws.partner ? ` and ${ws.partner.name}` : ""}
               </p>
               <p className="ws-cmd-actions">
-                <button type="button" className="link" onClick={() => setPicking("commander")}>
+                <button type="button" className="link" onClick={() => setPicking("commander")} data-testid="ws-change-commander">
                   Change commander
                 </button>
                 {ws.partner ? (
-                  <button type="button" className="link" onClick={() => change(setPartner(ws, null))}>
+                  <button type="button" className="link" onClick={() => change(setPartner(ws, null), `Removed ${ws.partner!.name}`)}>
                     Remove partner
                   </button>
                 ) : canPair(ws.commander) ? (
-                  <button type="button" className="link" onClick={() => setPicking(picking === "partner" ? null : "partner")} aria-expanded={picking === "partner"}>
+                  <button type="button" className="link" onClick={() => setPicking(picking === "partner" ? null : "partner")} aria-expanded={picking === "partner"} data-testid="ws-add-partner">
                     Add a partner
                   </button>
                 ) : null}
               </p>
               {picking === "partner" ? (
                 <div className="ws-partner">
-                  <CardSearch exclude={[ws.commander.name]} onClose={() => setPicking(null)} onPick={(n) => void pickPartner(n)} placeholder="Type the second commander" />
+                  <CardSearch
+                    exclude={partnerExclude}
+                    onClose={() => setPicking(null)}
+                    onPick={(n) => void pickPartner(n)}
+                    placeholder={pairsWithBackground ? "Type a Background's name" : "Type the second commander"}
+                    suggest={(q, signal) => partnerNames(ws.commander!.name, q, signal)}
+                    minChars={0}
+                    delay={250}
+                    empty={`Nothing by that name can pair with ${ws.commander.name.split(",")[0]}.`}
+                  />
                 </div>
               ) : null}
             </div>
@@ -435,7 +503,7 @@ export default function Workshop() {
             <p className="ws-chips">
               <label className="ws-bracket">
                 <span className="visually-hidden">Bracket</span>
-                <select value={ws.bracket} onChange={(e) => change({ ...ws, bracket: Number(e.target.value) })} data-testid="ws-bracket">
+                <select value={ws.bracket} onChange={(e) => change({ ...ws, bracket: Number(e.target.value) }, `Changed the bracket to ${e.target.value}`)} data-testid="ws-bracket">
                   {[1, 2, 3, 4].map((b) => (
                     <option key={b} value={b}>
                       Bracket {b}
@@ -451,6 +519,7 @@ export default function Workshop() {
           </div>
 
           <div className="ws-actions">
+            {undoButton}
             <button type="button" className="btn" onClick={() => void handOver()} disabled={!!step.problem} title={step.problem ?? undefined} data-testid="ws-claude">
               {step.kind === "complete" ? "Finish it for me" : "Review my deck"}
             </button>
@@ -652,7 +721,7 @@ export default function Workshop() {
         <CardModal
           card={open}
           onClose={() => setOpen(null)}
-          actions={<CardActions ws={ws} card={open} onAdd={(c) => (add(c), setOpen(null))} onRemove={(n) => (remove(n), setOpen(null))} onRole={(r) => (change(setRole(ws, open.name, r)), setOpen({ ...open, role: r }))} />}
+          actions={<CardActions ws={ws} card={open} onAdd={(c) => (add(c), setOpen(null))} onRemove={(n) => (remove(n), setOpen(null))} onRole={(r) => (change(setRole(ws, open.name, r), `Changed what ${open.name} counts as`), setOpen({ ...open, role: r }))} />}
           verdict={
             open.info && open.why !== "Commander" && !isBasicLand(open.name) ? (
               <CardVerdictNote
@@ -726,18 +795,28 @@ function SearchPane({
   const [q, setQ] = useState("");
   const [type, setType] = useState("");
   const [mv, setMv] = useState("");
-  const [res, setRes] = useState<{ total: number; cards: CardInfo[]; error?: string } | null>(null);
+  const [res, setRes] = useState<{ total: number; cards: CardInfo[]; next: number | null; error?: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // "Show more": the request for the next 40 (cancelled when the search changes) and its error
+  const moreCtl = useRef<AbortController | null>(null);
+  const [more, setMore] = useState(false);
+  const [moreErr, setMoreErr] = useState<string | null>(null);
   const colors = workshopIdentity(ws);
   const key = colors.join("");
   const text = q.trim();
   const has = useMemo(() => new Map(ws.cards.map((c) => [c.name.toLowerCase(), c.qty])), [ws.cards]);
+  const query = { q: text.length >= 2 ? text : "", colors, slot, type, mv };
 
   useEffect(() => {
+    moreCtl.current?.abort();
+    moreCtl.current = null;
+    setMore(false);
+    setMoreErr(null);
     if (text.length < 2 && !slot && !type && !mv) {
       setRes(null);
       setErr(null);
+      setBusy(false); // a search still running when the filters were cleared doesn't count
       return;
     }
     const ctl = new AbortController();
@@ -745,7 +824,7 @@ function SearchPane({
       setBusy(true);
       setErr(null);
       try {
-        setRes(await searchCards({ q: text.length >= 2 ? text : "", colors, slot, type, mv }, ctl.signal));
+        setRes(await searchCards(query, ctl.signal));
       } catch (e) {
         if (!ctl.signal.aborted) setErr((e as Error).message);
       } finally {
@@ -758,6 +837,32 @@ function SearchPane({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text, slot, type, mv, key]);
+
+  const showMore = async () => {
+    if (!res?.next || moreCtl.current) return;
+    const ctl = new AbortController();
+    moreCtl.current = ctl;
+    setMore(true);
+    setMoreErr(null);
+    try {
+      const r = await searchCards(query, ctl.signal, res.next);
+      if (ctl.signal.aborted) return;
+      if (r.error) setMoreErr(r.error);
+      // the next 40 go under the ones already shown; a card already on the list isn't shown twice
+      setRes((cur) => {
+        if (!cur) return cur;
+        const seen = new Set(cur.cards.map((c) => c.name.toLowerCase()));
+        return { ...cur, next: r.next, cards: [...cur.cards, ...r.cards.filter((c) => !seen.has(c.name.toLowerCase()))] };
+      });
+    } catch (e) {
+      if (!ctl.signal.aborted) setMoreErr((e as Error).message);
+    } finally {
+      if (moreCtl.current === ctl) {
+        moreCtl.current = null;
+        setMore(false);
+      }
+    }
+  };
 
   return (
     <section className="ws-pane ws-search panel" data-pane="search" aria-labelledby="ws-search-h">
@@ -845,7 +950,23 @@ function SearchPane({
           })}
         </ul>
       ) : null}
-      {res && res.total > res.cards.length ? <p className="note">The {res.cards.length} most played of {res.total.toLocaleString("en")}. Add words or filters to narrow it down.</p> : null}
+      {res?.cards.length && res.total > res.cards.length ? (
+        <div className="ws-more">
+          <p className="note" data-testid="ws-shown">
+            The {res.cards.length} most played of {res.total.toLocaleString("en")}.{res.next ? "" : " Add words or filters to narrow it down."}
+          </p>
+          {res.next ? (
+            <button type="button" className="btn btn--small" onClick={() => void showMore()} disabled={more} aria-busy={more} data-testid="ws-more">
+              {more ? "Loading…" : "Show more"}
+            </button>
+          ) : null}
+          {moreErr ? (
+            <p className="error" role="alert">
+              Couldn&apos;t load more: {moreErr}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }
