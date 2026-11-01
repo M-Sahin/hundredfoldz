@@ -6,6 +6,8 @@
 // - a deck plan: 3 to 5 themes, each with a Scryfall search. The server runs every search the way
 //   the workshop's own search does (commander's colors, Commander-legal) and only keeps themes
 //   whose search finds cards; the rest go back to Claude.
+// - a card verdict: two lines on one card in this deck, and a better card for the same job when
+//   there is one. The better card is checked like a pick (as if it took the asked-about card's place).
 import type { ModelCaller } from "./anthropic";
 import { cardLine, cleanAssistant, emptyUsage, runLookup, withCacheBreakpoint } from "./agent";
 import { searchQuery } from "./card-search";
@@ -14,10 +16,10 @@ import { TOOLS, skillContext } from "./prompt";
 import * as scry from "./scryfall";
 import { analysisReport, analyzeDeck, guessRole } from "../shared/analysis";
 import { bracketInfo } from "../shared/bracket";
-import { COACH_SLOTS, MIN_THEME_CARDS, PICKS, PLAN_THEMES, type CoachDeck, type CoachEvent, type CoachRequest, type PlanRequest, type PlanTheme } from "../shared/coach";
+import { COACH_SLOTS, FITS, MIN_THEME_CARDS, PICKS, PLAN_THEMES, type CardVerdict, type CoachDeck, type CoachEvent, type CoachRequest, type Fit, type PlanRequest, type PlanTheme, type VerdictRequest } from "../shared/coach";
 import { describeQuery } from "../shared/query-text";
 import { ROLE_LABELS, type CardInfo, type Color, type StreamEvent } from "../shared/types";
-import { canAdd, toDeck, workshopIdentity, workshopTotal, type WorkshopDeck } from "../shared/workshop";
+import { canAdd, removeOne, toDeck, workshopIdentity, workshopTotal, type WorkshopDeck } from "../shared/workshop";
 
 const MAX_LOOKUPS = 3;
 
@@ -73,6 +75,34 @@ export const PLAN_TOOL = {
   },
 } as const;
 
+export const VERDICT_TOOL = {
+  name: "judge_card",
+  description: "Tell the player how well one card fits this deck, in two short lines, and name a better card for the same job if there clearly is one. The server checks the better card and says if it couldn't show it.",
+  input_schema: {
+    type: "object",
+    properties: {
+      fit: { type: "string", enum: Object.keys(FITS), description: "great: one of the deck's best cards for its plan; fine: it does its job; weak: the deck has better uses for the slot." },
+      lines: {
+        type: "array",
+        minItems: 2,
+        maxItems: 2,
+        items: { type: "string" },
+        description: "Exactly two short lines, at most ~18 words each, in plain words: first what the card does for THIS deck, then the catch (or why it's still worth it).",
+      },
+      better: {
+        type: "object",
+        description: "Only when a clearly better card for the same job exists in the commander's colors and isn't in the deck. Leave out otherwise.",
+        properties: {
+          name: { type: "string", description: "Exact English card name" },
+          why: { type: "string", description: "One sentence, at most ~18 words: why it's better here." },
+        },
+        required: ["name", "why"],
+      },
+    },
+    required: ["fit", "lines"],
+  },
+} as const;
+
 const ADAPTER = `
 # How you're used here
 
@@ -89,6 +119,9 @@ Deal the player ${PICKS} cards for one slot to choose from. They keep one or ask
 
 ## A deck plan (plan_deck)
 Sketch what the deck could be about: ${PLAN_THEMES.min} to ${PLAN_THEMES.max} themes the commander rewards, each with a Scryfall search the player can tap to find cards for it. Prefer Oracle text (o:"...") and Scryfall Tagger tags (otag:...) to card names, so each search finds a pool to choose from. Different themes, not one theme five ways.
+
+## Is this card good here? (judge_card)
+Judge one card in this deck: how well it fits, in two short, honest lines. Name a better card for the same job only when there clearly is one; "it's fine" is a good answer. Check a better card with get_cards before you name it.
 `.trim();
 
 export function coachSystemPrompt(): string {
@@ -138,6 +171,18 @@ export function planPrompt(ws: WorkshopDeck): string {
     ...deckLines(ws),
     "",
     `Sketch ${PLAN_THEMES.min} to ${PLAN_THEMES.max} themes for ${cmd}. For each: a short name, one sentence on why it fits, and a Scryfall search for cards in it, written without color or format filters (the server adds id<=${idFilter(ws)} f:commander). Answer with plan_deck.`,
+  ].join("\n");
+}
+
+/** What Claude is told when the player asks about one card. */
+export function verdictPrompt(ws: WorkshopDeck, card: CardInfo): string {
+  const inDeck = ws.cards.some((c) => c.name.toLowerCase() === card.name.toLowerCase());
+  return [
+    `The player is building this Commander deck by hand and asks: is ${card.name} good in it?`,
+    ...deckLines(ws),
+    "",
+    `${inDeck ? "It's in the deck" : "They're thinking of adding it"}: ${cardLine(card, "full")}`,
+    `Answer with judge_card: how well it fits, two short lines, and a better card for the same job only if there clearly is one (in id<=${idFilter(ws)}, Commander-legal, not in the deck).`,
   ].join("\n");
 }
 
@@ -229,7 +274,7 @@ async function coachLoop(loop: Loop, opts: CoachOptions): Promise<void> {
   const left = () => (opts.timeBudgetMs ?? 45_000) - (Date.now() - started);
   const system = [{ type: "text", text: coachSystemPrompt(), cache_control: { type: "ephemeral" } }];
   // every mode gets every tool, so the cached prefix is the same for picks and plans
-  const tools = [TOOLS[0], TOOLS[1], OFFER_TOOL, PLAN_TOOL];
+  const tools = [TOOLS[0], TOOLS[1], OFFER_TOOL, PLAN_TOOL, VERDICT_TOOL];
   const messages: any[] = [{ role: "user", content: loop.prompt }];
   const engine = parseEngine("v1");
   const usage = emptyUsage();
@@ -384,4 +429,72 @@ export async function runPlan(req: PlanRequest, opts: CoachOptions): Promise<Pla
   );
   if (themes.length < PLAN_THEMES.min && !opts.signal?.aborted) emit({ type: "status", text: themes.length ? `Claude found ${themes.length} theme${themes.length === 1 ? "" : "s"} with cards` : "Claude couldn't find themes with cards" });
   return themes;
+}
+
+/** Judges one card. Returns the verdict shown (also emitted as a "verdict" event), or null. */
+export async function runVerdict(req: VerdictRequest, opts: CoachOptions): Promise<CardVerdict | null> {
+  const { emit } = opts;
+  emit({ type: "status", text: "Claude is reading your deck" });
+  const [ws, asked] = await Promise.all([loadDeck(req, emit), scry.getCollection([req.card]).then((r) => r.found.get(req.card.toLowerCase()))]);
+  if (!ws) return null;
+  if (!asked) {
+    emit({ type: "error", message: `Couldn't find ${req.card} on Scryfall.` });
+    return null;
+  }
+  if ([ws.commander, ws.partner].some((c) => c && c.name.toLowerCase() === asked.name.toLowerCase())) {
+    emit({ type: "error", message: `${asked.name} is your commander: the whole deck is built around it.` });
+    return null;
+  }
+  // a better card takes the asked-about card's place: check it against the deck without that card
+  const without = removeOne(ws, asked.name);
+  const b = bracketInfo(ws.bracket);
+  const gcLeft = b.maxGameChangers - [...without.cards.map((c) => c.info), ws.commander, ws.partner].filter((c) => c?.gameChanger).length;
+  const seen = new Set<string>(); // better cards already turned down
+  let shown: CardVerdict | null = null;
+  let draft: CardVerdict | null = null; // the lines, kept while a better card is sent back
+  let tries = 0;
+  const show = (v: CardVerdict) => {
+    shown = v;
+    emit({ type: "verdict", verdict: v });
+  };
+
+  await coachLoop(
+    {
+      prompt: verdictPrompt(ws, asked),
+      output: VERDICT_TOOL,
+      done: () => !!shown,
+      nudge: () => "Call judge_card now.",
+      async onOutput(input) {
+        tries++;
+        const fit: Fit = Object.hasOwn(FITS, input?.fit) ? input.fit : draft?.fit ?? "fine";
+        const raw: unknown[] = Array.isArray(input?.lines) ? input.lines : typeof input?.lines === "string" ? input.lines.split(/\n+/) : [];
+        const lines = raw.map((l) => String(l ?? "").replace(/\s+/g, " ").trim().slice(0, 200)).filter(Boolean).slice(0, 2);
+        if (!lines.length && !draft) return { again: true, content: "Give two short lines about the card." };
+        draft = { card: asked.name, fit, lines: lines.length ? lines : draft!.lines };
+        const name = String(input?.better?.name ?? "").trim().slice(0, 150);
+        if (!name) {
+          show(draft);
+          return { again: false, content: "Shown to the player." };
+        }
+        const c = (await scry.getCollection([name])).found.get(name.toLowerCase());
+        const why = !c ? "not found on Scryfall" : c.name.toLowerCase() === asked.name.toLowerCase() ? "that is the card being judged" : refusal(without, c, seen, gcLeft);
+        if (!why && c) {
+          show({ ...draft, better: { card: c, why: String(input.better.why ?? "").replace(/\s+/g, " ").trim().slice(0, 240) } });
+          return { again: false, content: "Shown to the player." };
+        }
+        seen.add(name.toLowerCase());
+        // one more try for a better card; after that the verdict goes out without one
+        if (tries >= 2) {
+          show(draft);
+          return { again: false, content: `Couldn't show ${name}: ${why}. Shown without a better card.` };
+        }
+        return { again: true, content: `Couldn't show ${name}: ${why}. Call judge_card again with another better card, or without one.` };
+      },
+    },
+    opts,
+  );
+  // out of time or turns with the lines but no checked better card: show the lines
+  if (!shown && draft && !opts.signal?.aborted) show(draft);
+  if (!shown && !opts.signal?.aborted) emit({ type: "status", text: "Claude couldn't judge the card this time" });
+  return shown;
 }

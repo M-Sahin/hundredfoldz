@@ -121,7 +121,7 @@ test("themes whose search finds no cards (or too few, or repeats one) go back; t
     assert.match(JSON.stringify(seen[0].system), /plan_deck/);
     assert.deepEqual(
       (seen[0].tools as any[]).map((t) => t.name),
-      ["search_cards", "get_cards", "offer_cards", "plan_deck"],
+      ["search_cards", "get_cards", "offer_cards", "plan_deck", "judge_card"],
     );
   } finally {
     fake.restore();

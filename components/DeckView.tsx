@@ -642,7 +642,8 @@ function BracketCard({ deck, validation }: { deck: Deck; validation: Validation 
 }
 
 /** `actions`: buttons next to Open on Scryfall (the workshop adds and removes cards here). */
-export function CardModal({ card, onClose, actions }: { card: DeckCard; onClose: () => void; actions?: ReactNode }) {
+/** `verdict`: the workshop's "Is this card good here?" (only the workshop passes it). */
+export function CardModal({ card, onClose, actions, verdict }: { card: DeckCard; onClose: () => void; actions?: ReactNode; verdict?: ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const d = ref.current;
@@ -678,6 +679,7 @@ export function CardModal({ card, onClose, actions }: { card: DeckCard; onClose:
             {i?.gameChanger ? ", Game Changer" : ""}
             {card.seed ? ", one of your seeds" : ""}
           </p>
+          {verdict}
           {!isBasicLand(card.name) ? <CardOffers name={card.name} /> : null}
           <div className="modal-actions">
             {actions}

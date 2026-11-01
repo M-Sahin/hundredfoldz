@@ -48,8 +48,9 @@ const workshopDeck = async (p) => {
   const total = await p.textContent("[data-testid=ws-total]");
   console.log(`workshop: ${total} cards after 3 picks and the basic lands`);
 };
-// a stand-in for /api/coach (CI has no Claude): free deals on, and a scripted deck plan whose
-// searches are real Scryfall searches (tapping a theme runs one)
+// a stand-in for /api/coach (CI has no Claude): free deals on, a scripted deck plan whose searches
+// are real Scryfall searches (tapping a theme runs one), and a scripted card verdict whose better
+// card is real Scryfall data
 const fakeCoach = async (route) => {
   const req = route.request();
   if (req.method() === "GET") return route.fulfill({ json: { enabled: true, limit: 5, used: 0, remaining: 5, model: "claude-haiku-5-5" } });
@@ -60,8 +61,12 @@ const fakeCoach = async (route) => {
     { name: "Self-mill to fill the yard", why: "More creatures in the graveyard, better returns at the end step.", query: "otag:self-mill t:creature", total: 90 },
   ];
   const usage = { type: "usage", usage: { calls: 2, input: 3000, output: 400, cacheRead: 9000, cacheWrite: 0 }, model: "claude-haiku-5-5" };
+  const better = body.mode === "verdict" ? (await fetch(`${base}/api/cards/search?id=bg&q=${encodeURIComponent('!"Midnight Reaper"')}`).then((r) => r.json()).catch(() => ({}))).cards?.[0] : null;
+  const verdict = { card: body.card, fit: "fine", lines: ["It does its job here, a little slowly.", "A card that draws as your creatures die would do more."], ...(better ? { better: { card: better, why: "Draws a card each time one of your creatures dies." } } : {}) };
   const lines =
-    body.mode === "plan"
+    body.mode === "verdict"
+      ? [{ type: "status", text: "Claude is reading your deck" }, { type: "verdict", verdict }, usage, { type: "done", ms: 3000, picks: 1 }]
+      : body.mode === "plan"
       ? [{ type: "status", text: "Checking the searches on Scryfall" }, ...themes.map((theme) => ({ type: "theme", theme })), usage, { type: "done", ms: 5000, picks: themes.length }]
       : [{ type: "status", text: "Claude couldn't find cards that fit" }, usage, { type: "done", ms: 3000, picks: 0 }];
   await route.fulfill({ status: 200, contentType: "application/x-ndjson; charset=utf-8", body: lines.map((l) => JSON.stringify(l)).join("\n") + "\n" });
@@ -78,6 +83,16 @@ const workshopPlan = async (p) => {
   console.log(`workshop plan: theme search "${q}", ${deals} themes to deal for`);
   if (q !== "otag:sacrifice-outlet") errors.push(`tapping a plan theme searched for "${q}"`);
   if (deals !== 3) errors.push(`Deal me 3 offers ${deals} plan themes, not 3`);
+};
+// "Is this card good here?" in the workshop's card view (the first card in the deck)
+const workshopVerdict = async (p) => {
+  if (await p.locator("[data-testid=ws-tab-deck]").isVisible()) await p.click("[data-testid=ws-tab-deck]");
+  await p.click("[data-testid=ws-deck-list]");
+  await p.locator(".ws-card-name").first().click();
+  await p.click("dialog[open] [data-testid=verdict-ask]");
+  await p.waitForSelector("dialog[open] [data-testid=verdict-fit]", { timeout: 15000 });
+  const better = await p.locator("dialog[open] [data-testid=verdict-better]").count();
+  console.log(`workshop verdict: ${await p.textContent("dialog[open] [data-testid=verdict-fit]")}${better ? ", with a better card" : ""}`);
 };
 const toResult = async (p) => {
   await loadSeeds(p);
@@ -842,6 +857,8 @@ await run("40-phone-sweep", { width: 360, height: 740 }, async (p) => {
     await p.locator(".ws-card-name").first().click();
   });
   await p.keyboard.press("Escape");
+  await step("workshop card verdict", async () => workshopVerdict(p));
+  await p.keyboard.press("Escape");
   await step("bracket checker", async () => p.goto(`${base}/bracket`, { waitUntil: "load" }));
   await step("box EV", async () => p.goto(`${base}/ev`, { waitUntil: "networkidle" }));
   await step("a box", async () => p.goto(`${base}${evFirst || "/ev/dsk-play"}`, { waitUntil: "networkidle" }));
@@ -860,6 +877,11 @@ await run("48-workshop-plan", { width: 1440, height: 1000 }, async (p) => {
   await p.route("**/api/coach", fakeCoach);
   await workshopDeck(p);
   await workshopPlan(p);
+});
+await run("49-workshop-verdict", { width: 1440, height: 1000 }, async (p) => {
+  await p.route("**/api/coach", fakeCoach);
+  await workshopDeck(p);
+  await workshopVerdict(p);
 });
 // a pasted decklist opens in the workshop (real Scryfall); a made-up card is named as left out
 await run("47-workshop-paste", { width: 1440, height: 1000 }, async (p) => {

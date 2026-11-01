@@ -193,6 +193,8 @@ function Report({ days, store }: { days: Day[]; store: string }) {
               ["Free card picks dealt", t["coach_deal|free"]],
               ["Deck plans sketched (own or saved key)", (t["coach_plan|own"] ?? 0) + (t["coach_plan|saved"] ?? 0) || undefined],
               ["Free deck plans sketched", t["coach_plan|free"]],
+              ["Card verdicts (own or saved key)", (t["coach_verdict|own"] ?? 0) + (t["coach_verdict|saved"] ?? 0) || undefined],
+              ["Free card verdicts", t["coach_verdict|free"]],
               ["Free deals refused: used today's", t["coach_free_refused|used"]],
               ["Free deals refused: address or site limit", (t["coach_free_refused|ip"] ?? 0) + (t["coach_free_refused|site"] ?? 0) || undefined],
               ["Saved", t["workshop|saved"]],

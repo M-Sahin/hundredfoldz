@@ -89,13 +89,13 @@ Set a monthly spend limit on the key's workspace in the Claude Console as a last
 
 ### Free card picks
 
-The deck workshop's "Deal me 3" (Claude deals three cards for a slot of the deck) and its deck plan (3 to 5 themes, each a checked Scryfall search) run on the visitor's own Claude API key. With `ANTHROPIC_API_KEY` and `FREE_DEALS=5`, visitors without a key get five deals a day on your key instead, always on Claude Haiku 5.5. The workshop says how many are left; after that it asks for the visitor's own key, and visitors with their own key aren't limited by it. Free deals work with or without `FREE_BUILDS`.
+The deck workshop's "Deal me 3" (Claude deals three cards for a slot of the deck) its deck plan (3 to 5 themes, each a checked Scryfall search) and "Is this card good here?" (a two-line verdict on one card) run on the visitor's own Claude API key. With `ANTHROPIC_API_KEY` and `FREE_DEALS=5`, visitors without a key get five deals a day on your key instead, always on Claude Haiku 5.5. The workshop says how many are left; after that it asks for the visitor's own key, and visitors with their own key aren't limited by it. Free deals work with or without `FREE_BUILDS`.
 
 - **Counted like free builds,** under their own counts: per browser and per account (per day), per IP address per day (`FREE_DEALS_PER_IP_PER_DAY`) and for the whole site per day (`FREE_DEALS_PER_DAY`). Their tokens go into the same daily budget as free builds (`FREE_TOKENS_PER_DAY`).
 - **Bot check.** With Turnstile on, each free deal needs a fresh token.
-- **A plan is a deal.** Sketching a deck plan uses one of the day's free deals, counted the same way.
-- **Given back when nothing came of it.** A deal that shows no cards (or a plan with no themes) doesn't count against the visitor (the address and site counts and the token budget still do). A deal the visitor closes early isn't given back.
-- **Small.** A deal or a plan is at most five short Haiku calls with the skill prompt cached, and three Scryfall lookups by Claude; a plan also runs each theme's search once on the server to check it (Scryfall only, no extra tokens). The stats page counts free deals, plans and refusals.
+- **A plan or a verdict is a deal.** Sketching a deck plan or asking about a card uses one of the day's free deals, counted the same way.
+- **Given back when nothing came of it.** A deal that shows no cards (or a plan with no themes, or no verdict) doesn't count against the visitor (the address and site counts and the token budget still do). A deal the visitor closes early isn't given back.
+- **Small.** A deal, a plan or a verdict is at most five short Haiku calls with the skill prompt cached, and three Scryfall lookups by Claude; a plan also runs each theme's search once on the server to check it (Scryfall only, no extra tokens). The stats page counts free deals, plans, verdicts and refusals.
 
 ### Own API keys
 

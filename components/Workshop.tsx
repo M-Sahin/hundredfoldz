@@ -3,8 +3,8 @@
 // side, the deck in the middle, and the checks beside it: lands, ramp, draw, removal, legality and
 // the bracket, counted in the browser as the deck grows (lib/shared/workshop.ts). On a phone the
 // three are tabs. Claude comes in only when asked: to finish the deck or review it, through the
-// build page's complete and upgrade modes; for card picks (Deal me 3); or for a plan, themes that
-// become search chips and Deal me 3 targets.
+// build page's complete and upgrade modes; for card picks (Deal me 3); for a plan, themes that
+// become search chips and Deal me 3 targets; or for a verdict on one card, in the card view.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { SiteHeader } from "./SiteHeader";
 import { CardSearch } from "./CardSearch";
@@ -14,10 +14,11 @@ import { TrendingCommanders } from "./TrendingCommanders";
 import { ShareButton } from "./ShareSheet";
 import { Menu } from "./Menu";
 import { CardPicks } from "./CardPicks";
-import { PlanNote, type PlanAccess } from "./DeckPlan";
+import { PlanNote, type CoachAccess } from "./DeckPlan";
+import { CardVerdictNote } from "./CardVerdict";
 import { KeySheet } from "./BuildAccess";
 import type { KeyState } from "./KeyPanel";
-import { pickSlots, type PickTarget, type PlanTheme } from "../lib/shared/coach";
+import { pickSlots, type CardVerdict, type PickTarget, type PlanTheme } from "../lib/shared/coach";
 import { analyzeDeck, guessRole } from "../lib/shared/analysis";
 import { validateDeck } from "../lib/shared/validate";
 import { simulateOpeners } from "../lib/shared/openers";
@@ -118,6 +119,7 @@ export default function Workshop() {
   const [keySheet, setKeySheet] = useState(false);
   const [dealing, setDealing] = useState<PickTarget | null>(null);
   const [passed, setPassed] = useState<Record<string, string[]>>({}); // by PickTarget key
+  const [verdicts, setVerdicts] = useState<Record<string, CardVerdict>>({}); // this visit's, by card name
   const site = useSiteConfig();
   const acct = useAccount();
   // without a key: the site's free deals, if it gives them out (a bot check per deal)
@@ -188,6 +190,17 @@ export default function Workshop() {
     change(next, check ? `Added ${c.name}. ${check.label}: ${check.have + 1} of ${check.want[0]}–${check.want[1]}.` : `Added ${c.name}.`);
   };
   const remove = (name: string) => change(removeOne(ws, name), `Removed ${name}.`);
+  // a verdict's better card: in place of the card when it's in the deck, else added instead of it
+  const swapIn = (old: DeckCard, better: CardInfo) => {
+    const has = ws.cards.some((c) => c.name.toLowerCase() === old.name.toLowerCase());
+    const base = has ? removeOne(ws, old.name) : ws;
+    const why = canAdd(base, better);
+    if (why) return say({ text: why, tone: "bad" });
+    const next = addCard(base, better);
+    change(next, has ? `Swapped ${old.name} for ${better.name}.` : `Added ${better.name}.`);
+    const added = next.cards.find((c) => c.name === better.name);
+    setOpen(added ?? null);
+  };
 
   const pickCommander = async (name: string) => {
     setError(null);
@@ -363,7 +376,7 @@ export default function Workshop() {
   const plan = currentPlan(ws);
   const targets = pickSlots(checks, plan?.themes);
   const keyAuth = { apiKey: key.key || undefined, savedKey: !key.key && !!key.saved };
-  const planAccess: PlanAccess = {
+  const planAccess: CoachAccess = {
     auth: ownKey ? keyAuth : deals?.enabled ? { free: true } : null,
     getTurnstile: human.take,
     freeLeft: ownKey ? undefined : freeLeft,
@@ -640,6 +653,19 @@ export default function Workshop() {
           card={open}
           onClose={() => setOpen(null)}
           actions={<CardActions ws={ws} card={open} onAdd={(c) => (add(c), setOpen(null))} onRemove={(n) => (remove(n), setOpen(null))} onRole={(r) => (change(setRole(ws, open.name, r)), setOpen({ ...open, role: r }))} />}
+          verdict={
+            open.info && open.why !== "Commander" && !isBasicLand(open.name) ? (
+              <CardVerdictNote
+                ws={ws}
+                card={open.info}
+                access={planAccess}
+                cached={verdicts[open.name.toLowerCase()]}
+                onVerdict={(v) => setVerdicts((m) => ({ ...m, [v.card.toLowerCase()]: v }))}
+                onSwap={(b) => swapIn(open, b)}
+                onOpen={(c) => setOpen({ name: c.name, role: guessRole(c), why: "", qty: 0, info: c })}
+              />
+            ) : null
+          }
         />
       ) : null}
     </div>

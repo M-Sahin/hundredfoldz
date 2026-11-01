@@ -8,19 +8,20 @@ import { ApiError, coachDeal } from "../lib/client/api";
 import { PLAN_THEMES, type DeckPlan, type PlanTheme } from "../lib/shared/coach";
 import type { WorkshopDeck } from "../lib/shared/workshop";
 
-export interface PlanAccess {
+/** How the workshop's Claude help is paid for (plans, verdicts). */
+export interface CoachAccess {
   /** the visitor's own key, or `free`: one of the site's free deals; null: neither (ask for a key) */
   auth: { apiKey?: string; savedKey?: boolean; free?: boolean } | null;
   /** a fresh bot-check token, for a free deal */
   getTurnstile?: () => Promise<string | undefined>;
   /** free deals left today, when on the site's key */
   freeLeft?: number;
-  /** after every plan (the page refreshes the free deals left) */
+  /** after every call (the page refreshes the free deals left) */
   onDealt?: () => void;
   onNeedKey: () => void;
 }
 
-export function PlanNote({ ws, plan, access, active, onTheme, onPlan }: { ws: WorkshopDeck; plan: DeckPlan | null; access: PlanAccess; active?: string; onTheme: (t: PlanTheme) => void; onPlan: (p: DeckPlan) => void }) {
+export function PlanNote({ ws, plan, access, active, onTheme, onPlan }: { ws: WorkshopDeck; plan: DeckPlan | null; access: CoachAccess; active?: string; onTheme: (t: PlanTheme) => void; onPlan: (p: DeckPlan) => void }) {
   const [themes, setThemes] = useState<PlanTheme[]>([]);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
