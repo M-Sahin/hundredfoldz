@@ -17,6 +17,8 @@ import {
   fromDeck,
   landCount,
   partnerProblem,
+  popUndo,
+  pushUndo,
   removeOne,
   sameCards,
   setCommander,
@@ -25,6 +27,8 @@ import {
   withInfo,
   workshopIdentity,
   workshopTotal,
+  UNDO_LIMIT,
+  type UndoStep,
   type WorkshopDeck,
 } from "../lib/shared/workshop";
 import type { CardInfo } from "../lib/shared/types";
@@ -184,4 +188,50 @@ test("the search endpoint asks Scryfall with the filters, and no matches is an e
   } finally {
     fake.restore();
   }
+});
+
+test("undo goes back one change at a time, keeps the last 20, and folds name typing into one step", () => {
+  const start = withMeren();
+  let ws = start;
+  let steps: UndoStep[] = [];
+  const names = ["Sol Ring", "Cultivate", "Putrefy"];
+  for (const n of names) {
+    steps = pushUndo(steps, ws, `Added ${n}`);
+    ws = addCard(ws, card(n));
+  }
+  assert.equal(steps.length, 3);
+  // back three steps, newest first, to the deck with only the commander
+  for (const n of [...names].reverse()) {
+    const u = popUndo(steps)!;
+    assert.equal(u.step.label, `Added ${n}`);
+    ws = u.step.deck;
+    steps = u.rest;
+  }
+  assert.deepEqual(ws, start);
+  assert.equal(popUndo(steps), null);
+
+  // an empty workshop has nothing to go back to
+  assert.deepEqual(pushUndo([], EMPTY_WORKSHOP, "Picked a commander"), []);
+
+  // typing the deck name letter by letter is one step, back to the name before typing
+  ws = start;
+  steps = [];
+  for (const name of ["G", "Gr", "Gra", "Grave"]) {
+    steps = pushUndo(steps, ws, "Renamed the deck", "name");
+    ws = { ...ws, name };
+  }
+  assert.equal(steps.length, 1);
+  assert.equal(steps[0].deck.name, "");
+  // another change in between starts a new name step
+  steps = pushUndo(steps, ws, "Added Sol Ring");
+  ws = addCard(ws, card("Sol Ring"));
+  steps = pushUndo(steps, ws, "Renamed the deck", "name");
+  assert.equal(steps.length, 3);
+
+  // only the newest 20 are kept
+  steps = [];
+  for (let i = 0; i < 25; i++) steps = pushUndo(steps, { ...start, bracket: i }, `Step ${i}`);
+  assert.equal(steps.length, UNDO_LIMIT);
+  assert.equal(steps[0].label, "Step 5");
+  assert.equal(steps[UNDO_LIMIT - 1].label, "Step 24");
 });
