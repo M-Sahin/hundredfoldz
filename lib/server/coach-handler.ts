@@ -1,17 +1,18 @@
-// POST /api/coach: one "Deal me 3" in the workshop, or (mode: "plan") a deck plan, streamed as
-// NDJSON lines (CoachEvent). Both run on the visitor's own Claude API key (typed in, or saved to
-// their account), or, when the site sets FREE_DEALS, on the site's key for a few free deals a
-// visitor a day (counted like free builds, with the bot check; see free-builds.ts). A plan costs one
-// deal. GET /api/coach: today's free deals left. Framework-independent, like generate-handler.ts.
+// POST /api/coach: one "Deal me 3" in the workshop, a deck plan (mode: "plan") or a verdict on one
+// card (mode: "verdict"), streamed as NDJSON lines (CoachEvent). All run on the visitor's own
+// Claude API key (typed in, or saved to their account), or, when the site sets FREE_DEALS, on the
+// site's key for a few free deals a visitor a day (counted like free builds, with the bot check; see
+// free-builds.ts). A plan or a verdict costs one deal. GET /api/coach: today's free deals left.
+// Framework-independent, like generate-handler.ts.
 import { anthropicCaller, friendlyModelError, type ModelCaller } from "./anthropic";
 import { keyTag, ownKey } from "./build-access";
 import { serverConfig } from "./config";
-import { runCoach, runPlan } from "./coach";
+import { runCoach, runPlan, runVerdict } from "./coach";
 import { LIMITS, clientIp, rateLimitAll, tooMany, type LimitRule } from "./ratelimit";
 import { count } from "./stats";
 import { claimFreeBuild, dealRefusal, freeDealsConfig, freeStatus, spendFreeTokens, visitor } from "./free-builds";
 import { turnstileError, verifyTurnstile } from "./turnstile";
-import { COACH_MODEL, parseCoachRequest, parsePlanRequest, type CoachEvent } from "../shared/coach";
+import { COACH_MODEL, parseCoachRequest, parsePlanRequest, parseVerdictRequest, type CoachEvent } from "../shared/coach";
 
 const MAX_BODY = 60_000;
 const NDJSON_HEADERS = { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store", "X-Accel-Buffering": "no" };
@@ -35,8 +36,8 @@ export async function handleCoach(request: Request, override?: { callModel?: Mod
   } catch {
     return Response.json({ error: "Invalid JSON." }, { status: 400 });
   }
-  const plan = (body as any)?.mode === "plan";
-  const req = plan ? parsePlanRequest(body) : parseCoachRequest(body);
+  const mode = (body as any)?.mode === "plan" ? "plan" : (body as any)?.mode === "verdict" ? "verdict" : "deal";
+  const req = mode === "plan" ? parsePlanRequest(body) : mode === "verdict" ? parseVerdictRequest(body) : parseCoachRequest(body);
   if (typeof req === "string") return Response.json({ error: req }, { status: 400 });
 
   // a free deal: the bot check, then one of today's free deals (given back if it shows nothing)
@@ -74,13 +75,15 @@ export async function handleCoach(request: Request, override?: { callModel?: Mod
       };
       let picks = 0;
       try {
-        await count(`${plan ? "coach_plan" : "coach_deal"}|${own ? (own.fromSaved ? "saved" : "own") : "free"}`);
+        await count(`coach_${mode}|${own ? (own.fromSaved ? "saved" : "own") : "free"}`);
         const emit = (e: CoachEvent) => {
           if (e.type === "usage") tokens = e.usage.input + e.usage.output + e.usage.cacheRead + e.usage.cacheWrite;
           send(e);
         };
         const opts = { model: COACH_MODEL, callModel, emit, signal: ctl.signal, timeBudgetMs: override?.timeBudgetMs };
-        picks = ("mode" in req ? await runPlan(req, opts) : await runCoach(req, opts)).length;
+        if (!("mode" in req)) picks = (await runCoach(req, opts)).length;
+        else if (req.mode === "plan") picks = (await runPlan(req, opts)).length;
+        else picks = (await runVerdict(req, opts)) ? 1 : 0;
       } catch (e) {
         if (!ctl.signal.aborted) send({ type: "error", message: friendlyModelError(e, !!own) || "Something went wrong." });
       } finally {

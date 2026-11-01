@@ -3,6 +3,8 @@
 //   its plan); the server checks each before it's shown.
 // - a deck plan: 3 to 5 themes for the commander, each with a Scryfall search the server has run
 //   and found cards with. The themes become search chips and Deal me 3 targets.
+// - a card verdict ("Is this card good here?"): two lines on one card in this deck, and a better
+//   card for the job when there is one, checked like a pick before it's shown.
 import type { CardInfo, Usage } from "./types";
 
 export const COACH_SLOTS = {
@@ -49,6 +51,26 @@ export interface PlanRequest extends CoachDeck {
   mode: "plan";
 }
 
+export interface VerdictRequest extends CoachDeck {
+  mode: "verdict";
+  /** the card asked about: in the deck, or one the player is thinking of adding */
+  card: string;
+}
+
+/** How well a card fits, in plain words. */
+export const FITS = { great: "Great here", fine: "Fine here", weak: "Weak here" } as const;
+export type Fit = keyof typeof FITS;
+
+/** Claude's verdict on one card in this deck. */
+export interface CardVerdict {
+  card: string;
+  fit: Fit;
+  /** two short lines: what the card does for this deck, and the catch */
+  lines: string[];
+  /** a better card for the same job, checked on Scryfall and against the deck */
+  better?: { card: CardInfo; why: string };
+}
+
 /** One theme of a deck plan. */
 export interface PlanTheme {
   /** "Sacrifice for value": a few plain words */
@@ -72,9 +94,10 @@ export type CoachEvent =
   | { type: "status"; text: string }
   | { type: "pick"; card: CardInfo; why: string }
   | { type: "theme"; theme: PlanTheme }
+  | { type: "verdict"; verdict: CardVerdict }
   | { type: "usage"; usage: Usage; model: string }
   | { type: "error"; message: string; code?: string }
-  /** `picks`: how many cards (or themes) were shown */
+  /** `picks`: how many cards (or themes, or verdicts) were shown */
   | { type: "done"; ms: number; picks: number };
 
 const name = (v: unknown) => String(v ?? "").trim().slice(0, 150);
@@ -124,6 +147,14 @@ export function parseCoachRequest(body: any): CoachRequest | string {
 export function parsePlanRequest(body: any): PlanRequest | string {
   const deck = parseDeck(body);
   return typeof deck === "string" ? deck : { mode: "plan", ...deck };
+}
+
+/** A card-verdict request, or why it can't be used. */
+export function parseVerdictRequest(body: any): VerdictRequest | string {
+  const deck = parseDeck(body);
+  if (typeof deck === "string") return deck;
+  const card = name(body.card);
+  return card ? { mode: "verdict", ...deck, card } : "Pick a card to ask about.";
 }
 
 /** A plan read back from storage, or null when it isn't one. */

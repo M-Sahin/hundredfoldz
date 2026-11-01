@@ -1,7 +1,7 @@
 "use client";
 import type { CardInfo, Color, GenerateRequest, StreamEvent, Usage } from "../shared/types";
 import type { PublicConfig } from "../server/config";
-import type { CoachEvent, CoachRequest, PlanRequest } from "../shared/coach";
+import type { CoachEvent, CoachRequest, PlanRequest, VerdictRequest } from "../shared/coach";
 
 export type { PublicConfig };
 
@@ -76,10 +76,10 @@ export class ApiError extends Error {
 }
 
 /**
- * The workshop's "Deal me 3" (three checked cards) or a deck plan (checked themes), streamed one by
- * one. On the visitor's own key, or (no key, `turnstile` set) one of the site's free deals.
+ * The workshop's "Deal me 3" (three checked cards), a deck plan (checked themes) or a card verdict,
+ * streamed. On the visitor's own key, or (no key, `turnstile` set) one of the site's free deals.
  */
-export async function* coachDeal(req: CoachRequest | PlanRequest, auth: { apiKey?: string; savedKey?: boolean; turnstile?: string }, signal: AbortSignal): AsyncGenerator<CoachEvent> {
+export async function* coachDeal(req: CoachRequest | PlanRequest | VerdictRequest, auth: { apiKey?: string; savedKey?: boolean; turnstile?: string }, signal: AbortSignal): AsyncGenerator<CoachEvent> {
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (auth.apiKey) headers["x-anthropic-key"] = auth.apiKey;
   else if (auth.savedKey) headers["x-use-saved-key"] = "1";
@@ -87,7 +87,7 @@ export async function* coachDeal(req: CoachRequest | PlanRequest, auth: { apiKey
   const r = await fetch("/api/coach", { method: "POST", headers, body: JSON.stringify(body), signal });
   if (!r.ok || !r.body) {
     const j = await r.json().catch(() => ({}));
-    throw new ApiError(j.error ?? `${"mode" in req ? "The plan" : "Card picks"} failed (${r.status})`, j.code);
+    throw new ApiError(j.error ?? `${"mode" in req ? (req.mode === "plan" ? "The plan" : "The verdict") : "Card picks"} failed (${r.status})`, j.code);
   }
   yield* ndjson(r.body);
 }

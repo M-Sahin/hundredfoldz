@@ -6334,3 +6334,86 @@ main:has(> .deck) {
     transform: none;
   }
 }
+
+/* ---------- "Is this card good here?": Claude's verdict in the workshop's card view ---------- */
+.verdict-ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin: 4px 0 2px;
+}
+.verdict-ask .note {
+  font-size: 13px;
+}
+.verdict-ask .error {
+  flex-basis: 100%;
+}
+.verdict-note {
+  display: grid;
+  gap: 6px;
+  margin: 6px 4px 4px;
+  padding: 14px 16px;
+  transform: rotate(-0.8deg);
+}
+.verdict-note p {
+  margin: 0;
+}
+.verdict-note .verdict-fit {
+  font-size: 28px;
+}
+.verdict-line {
+  font-family: var(--font-note);
+  font-weight: 600;
+  font-size: 21px;
+  line-height: 1.12;
+}
+.verdict-status {
+  font-size: 15px;
+  color: var(--paper-ink-2);
+}
+.verdict-better {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(42, 35, 22, 0.35);
+}
+.verdict-better-card {
+  width: 64px;
+  cursor: pointer;
+}
+.verdict-better > div {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+}
+.verdict-better-name {
+  font-weight: 700;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.verdict-better-name span {
+  font-weight: 500;
+  color: var(--paper-ink-2);
+}
+.verdict-better-why {
+  font-size: 14px;
+  color: var(--paper-ink-2);
+}
+.verdict-note .link {
+  color: var(--paper-ink);
+}
+.verdict-note .error {
+  color: #8f1d1d;
+}
+.verdict-note :focus-visible {
+  outline-color: var(--paper-ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .verdict-note {
+    transform: none;
+  }
+}
