@@ -426,28 +426,31 @@ export default function Workshop() {
           <SearchPane ws={ws} slot={slot} setSlot={setSlot} onAdd={add} onOpen={(c) => setOpen({ name: c.name, role: guessRole(c), why: "", qty: 0, info: c })} />
           <DeckPane ws={ws} onRemove={remove} onOpen={setOpen} onBasics={() => void addBasics()} onStartOver={startOver} />
           <aside className="ws-pane ws-checks" data-pane="checks" aria-labelledby="ws-checks-h">
-            <section className="panel">
+            <section className="panel ws-checks-panel">
               <h2 id="ws-checks-h">How the deck is doing</h2>
               <p className="panel-sub">Counted from the cards&apos; own text as you build.</p>
               <ul className="ws-checklist">
                 {checks.map((k) => (
                   <li key={k.key} className={`is-${k.status}`} data-testid={`ws-check-${k.key}`}>
-                    <div className="ws-check-row">
-                      <span>
-                        <strong>{k.label}</strong> {k.have} <small>of {k.want[0]}–{k.want[1]}</small>
-                      </span>
-                      {k.status === "ok" ? (
-                        <span className="ws-check-status">In range</span>
-                      ) : (
-                        <button type="button" className="link ws-check-status" onClick={() => findFor(k.key)}>
-                          {k.status === "short" ? `${k.want[0] - k.have} short · find` : `${k.have - k.want[1]} over`}
-                        </button>
-                      )}
-                    </div>
-                    <div className="ws-bar-track" aria-hidden>
-                      <span style={{ width: `${Math.min(100, (k.have / k.want[1]) * 100)}%` }} />
-                      <i style={{ left: `${(k.want[0] / k.want[1]) * 100}%` }} />
-                    </div>
+                    {/* a ring that fills up to the low end of the usual range, the count in the middle */}
+                    <span className="ws-ring" aria-hidden style={{ ["--fill" as string]: Math.min(100, (k.have / k.want[0]) * 100) }}>
+                      <span>{k.have}</span>
+                    </span>
+                    <strong className="ws-check-label">
+                      {k.label}
+                      <span className="visually-hidden">: {k.have}</span>
+                    </strong>
+                    <small>
+                      <span className="visually-hidden">of </span>
+                      {k.want[0]}–{k.want[1]}
+                    </small>
+                    {k.status === "ok" ? (
+                      <span className="ws-check-status">In range</span>
+                    ) : (
+                      <button type="button" className="link ws-check-status" onClick={() => findFor(k.key)}>
+                        {k.status === "short" ? `${k.want[0] - k.have} short · find` : `${k.have - k.want[1]} over`}
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
