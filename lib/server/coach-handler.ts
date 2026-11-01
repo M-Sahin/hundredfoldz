@@ -1,17 +1,17 @@
-// POST /api/coach: one "Deal me 3" in the workshop, streamed as NDJSON lines (CoachEvent). Card
-// picks run on the visitor's own Claude API key (typed in, or saved to their account), or, when
-// the site sets FREE_DEALS, on the site's key for a few free deals a visitor a day (counted like
-// free builds, with the bot check; see free-builds.ts). GET /api/coach: today's free deals left.
-// Framework-independent, like generate-handler.ts.
+// POST /api/coach: one "Deal me 3" in the workshop, or (mode: "plan") a deck plan, streamed as
+// NDJSON lines (CoachEvent). Both run on the visitor's own Claude API key (typed in, or saved to
+// their account), or, when the site sets FREE_DEALS, on the site's key for a few free deals a
+// visitor a day (counted like free builds, with the bot check; see free-builds.ts). A plan costs one
+// deal. GET /api/coach: today's free deals left. Framework-independent, like generate-handler.ts.
 import { anthropicCaller, friendlyModelError, type ModelCaller } from "./anthropic";
 import { keyTag, ownKey } from "./build-access";
 import { serverConfig } from "./config";
-import { runCoach } from "./coach";
+import { runCoach, runPlan } from "./coach";
 import { LIMITS, clientIp, rateLimitAll, tooMany, type LimitRule } from "./ratelimit";
 import { count } from "./stats";
 import { claimFreeBuild, dealRefusal, freeDealsConfig, freeStatus, spendFreeTokens, visitor } from "./free-builds";
 import { turnstileError, verifyTurnstile } from "./turnstile";
-import { COACH_MODEL, parseCoachRequest, type CoachEvent } from "../shared/coach";
+import { COACH_MODEL, parseCoachRequest, parsePlanRequest, type CoachEvent } from "../shared/coach";
 
 const MAX_BODY = 60_000;
 const NDJSON_HEADERS = { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store", "X-Accel-Buffering": "no" };
@@ -35,10 +35,11 @@ export async function handleCoach(request: Request, override?: { callModel?: Mod
   } catch {
     return Response.json({ error: "Invalid JSON." }, { status: 400 });
   }
-  const req = parseCoachRequest(body);
+  const plan = (body as any)?.mode === "plan";
+  const req = plan ? parsePlanRequest(body) : parseCoachRequest(body);
   if (typeof req === "string") return Response.json({ error: req }, { status: 400 });
 
-  // a free deal: the bot check, then one of today's free deals (given back if it shows no cards)
+  // a free deal: the bot check, then one of today's free deals (given back if it shows nothing)
   const headers = new Headers(NDJSON_HEADERS);
   let refund: (() => Promise<void>) | null = null;
   if (deals) {
@@ -73,17 +74,18 @@ export async function handleCoach(request: Request, override?: { callModel?: Mod
       };
       let picks = 0;
       try {
-        await count(`coach_deal|${own ? (own.fromSaved ? "saved" : "own") : "free"}`);
+        await count(`${plan ? "coach_plan" : "coach_deal"}|${own ? (own.fromSaved ? "saved" : "own") : "free"}`);
         const emit = (e: CoachEvent) => {
           if (e.type === "usage") tokens = e.usage.input + e.usage.output + e.usage.cacheRead + e.usage.cacheWrite;
           send(e);
         };
-        picks = (await runCoach(req, { model: COACH_MODEL, callModel, emit, signal: ctl.signal, timeBudgetMs: override?.timeBudgetMs })).length;
+        const opts = { model: COACH_MODEL, callModel, emit, signal: ctl.signal, timeBudgetMs: override?.timeBudgetMs };
+        picks = ("mode" in req ? await runPlan(req, opts) : await runCoach(req, opts)).length;
       } catch (e) {
         if (!ctl.signal.aborted) send({ type: "error", message: friendlyModelError(e, !!own) || "Something went wrong." });
       } finally {
         if (deals) {
-          // a free deal that showed nothing (and wasn't closed by the player) doesn't count; its tokens do
+          // a free deal that showed nothing (no cards, no themes; and wasn't closed by the player) doesn't count; its tokens do
           if (!picks && !ctl.signal.aborted) await refund?.();
           if (tokens) await spendFreeTokens(tokens).catch(() => {});
         }

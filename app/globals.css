@@ -5636,7 +5636,7 @@ main.ws {
   background: transparent;
 }
 .ws-pane h2,
-.ws .panel h3:not(#ws-deal-h) {
+.ws .panel h3:not(#ws-deal-h):not(#ws-plan-h) {
   font-family: var(--font-label);
   font-weight: 700;
   font-size: 16px;
@@ -6252,6 +6252,85 @@ main:has(> .deck) {
   }
   .role-grid .tile:hover .card,
   .role-grid .tile:focus-within .card {
+    transform: none;
+  }
+}
+
+/* ---------- the workshop's deck plan: Claude's themes on a paper note in Find cards ---------- */
+.ws-plan {
+  display: grid;
+  gap: 8px;
+  margin: 2px 4px;
+  padding: 12px 14px 13px;
+  border-radius: 2px;
+  background: var(--paper);
+  color: var(--paper-ink);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+  transform: rotate(-0.5deg);
+}
+.ws-plan h3 {
+  margin: 0;
+  font-family: var(--font-note);
+  font-weight: 600;
+  font-size: 25px;
+  line-height: 1.05;
+  color: var(--paper-ink);
+}
+.ws-plan p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--paper-ink-2);
+}
+.ws-plan .ws-plan-why {
+  font-family: var(--font-note);
+  font-weight: 600;
+  font-size: 21px;
+  line-height: 1.1;
+  color: var(--paper-ink);
+}
+.ws-plan-themes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ws-plan .chip {
+  padding: 5px 12px;
+  border-color: var(--paper-ink-2);
+  background: transparent;
+  color: var(--paper-ink);
+  font-weight: 600;
+  max-width: 100%;
+  text-align: left;
+}
+.ws-plan .chip:hover:not(:disabled) {
+  background: rgba(42, 35, 22, 0.08);
+  color: var(--paper-ink);
+}
+.ws-plan .chip.is-on {
+  background: var(--paper-ink);
+  border-color: var(--paper-ink);
+  color: var(--paper);
+}
+.ws-plan .chip:disabled {
+  cursor: default;
+}
+.ws-plan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.ws-plan .link {
+  color: var(--paper-ink);
+}
+.ws-plan .error {
+  color: #8f1d1d;
+}
+.ws-plan :focus-visible {
+  outline-color: var(--paper-ink);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ws-plan {
     transform: none;
   }
 }

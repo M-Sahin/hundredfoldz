@@ -23,7 +23,9 @@ export const SERVER_EVENTS = {
   key_saved: [],
   /** a "Deal me 3" in the workshop, by whose key */
   coach_deal: ["own", "saved", "free"],
-  /** the free-deal wall: why a visitor didn't get one */
+  /** a deck plan in the workshop (themes to search for), by whose key */
+  coach_plan: ["own", "saved", "free"],
+  /** the free-deal wall (card picks and plans): why a visitor didn't get one */
   coach_free_refused: ["used", "ip", "site"],
   deck_saved: ["account"],
   share_link: [],

@@ -3,8 +3,9 @@
 // side, the deck in the middle, and the checks beside it: lands, ramp, draw, removal, legality and
 // the bracket, counted in the browser as the deck grows (lib/shared/workshop.ts). On a phone the
 // three are tabs. Claude comes in only when asked: to finish the deck or review it, through the
-// build page's complete and upgrade modes.
-import { useEffect, useMemo, useRef, useState } from "react";
+// build page's complete and upgrade modes; for card picks (Deal me 3); or for a plan, themes that
+// become search chips and Deal me 3 targets.
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { SiteHeader } from "./SiteHeader";
 import { CardSearch } from "./CardSearch";
 import { CardFace, IdentityPips, ManaCost } from "./CardFace";
@@ -12,10 +13,11 @@ import { CardModal, HandTab, NumbersTab } from "./DeckView";
 import { TrendingCommanders } from "./TrendingCommanders";
 import { ShareButton } from "./ShareSheet";
 import { Menu } from "./Menu";
-import { CardPicks, pickSlots } from "./CardPicks";
+import { CardPicks } from "./CardPicks";
+import { PlanNote, type PlanAccess } from "./DeckPlan";
 import { KeySheet } from "./BuildAccess";
 import type { KeyState } from "./KeyPanel";
-import { COACH_SLOTS, type CoachSlot } from "../lib/shared/coach";
+import { pickSlots, type PickTarget, type PlanTheme } from "../lib/shared/coach";
 import { analyzeDeck, guessRole } from "../lib/shared/analysis";
 import { pairingAbilities, validateDeck } from "../lib/shared/validate";
 import { simulateOpeners } from "../lib/shared/openers";
@@ -31,6 +33,7 @@ import {
   claudeStep,
   coachNotes,
   commanderProblem,
+  currentPlan,
   deckChecks,
   fillBasics,
   fromDeck,
@@ -122,8 +125,8 @@ export default function Workshop() {
   // and the cards passed on per slot this visit
   const [key, setKey] = useState<KeyState>({ key: "", model: "" });
   const [keySheet, setKeySheet] = useState(false);
-  const [dealing, setDealing] = useState<{ slot: CoachSlot; note?: string } | null>(null);
-  const [passed, setPassed] = useState<Partial<Record<CoachSlot, string[]>>>({});
+  const [dealing, setDealing] = useState<PickTarget | null>(null);
+  const [passed, setPassed] = useState<Record<string, string[]>>({}); // by PickTarget key
   const site = useSiteConfig();
   const acct = useAccount();
   // without a key: the site's free deals, if it gives them out (a bot check per deal)
@@ -416,6 +419,16 @@ export default function Workshop() {
   const ownKey = !!key.key || !!key.saved;
   const freeLeft = deals?.enabled ? (deals.remaining ?? 0) : 0;
   const cost = price(deck, cur);
+  const plan = currentPlan(ws);
+  const targets = pickSlots(checks, plan?.themes);
+  const keyAuth = { apiKey: key.key || undefined, savedKey: !key.key && !!key.saved };
+  const planAccess: PlanAccess = {
+    auth: ownKey ? keyAuth : deals?.enabled ? { free: true } : null,
+    getTurnstile: human.take,
+    freeLeft: ownKey ? undefined : freeLeft,
+    onDealt: refreshDeals,
+    onNeedKey: () => setKeySheet(true),
+  };
 
   return (
     <div className="app">
@@ -530,7 +543,26 @@ export default function Workshop() {
         </section>
 
         <div className="ws-panes">
-          <SearchPane ws={ws} slot={slot} setSlot={setSlot} onAdd={add} onOpen={(c) => setOpen({ name: c.name, role: guessRole(c), why: "", qty: 0, info: c })} />
+          <SearchPane
+            ws={ws}
+            slot={slot}
+            setSlot={setSlot}
+            onAdd={add}
+            onOpen={(c) => setOpen({ name: c.name, role: guessRole(c), why: "", qty: 0, info: c })}
+            plan={(active, onTheme) => (
+              <PlanNote
+                ws={ws}
+                plan={plan}
+                access={planAccess}
+                active={active}
+                onTheme={onTheme}
+                onPlan={(p) => {
+                  // the deck may have changed while Claude worked: keep the plan only for the same commanders
+                  setWs((w) => (w.commander?.name === p.commander && (w.partner?.name ?? null) === (p.partner ?? null) ? { ...w, plan: p } : w));
+                }}
+              />
+            )}
+          />
           <DeckPane ws={ws} onRemove={remove} onOpen={setOpen} onBasics={() => void addBasics()} onStartOver={startOver} />
           <aside className="ws-pane ws-checks" data-pane="checks" aria-labelledby="ws-checks-h">
             <section className="panel ws-checks-panel">
@@ -592,9 +624,9 @@ export default function Workshop() {
                 <p className="note">The deck has 100 cards. Cut one to get picks, or ask for a review.</p>
               ) : (
                 <div className="ws-deal-slots" role="group" aria-label="Deal me 3 for">
-                  {pickSlots(checks).map((s, i) => (
-                    <button key={s.slot} type="button" className={`btn btn--small ${i === 0 ? "btn--ink" : ""}`} onClick={() => setDealing(s)} data-testid={`ws-deal-${s.slot}`}>
-                      {i === 0 ? `Deal me 3: ${COACH_SLOTS[s.slot].label.toLowerCase()}` : COACH_SLOTS[s.slot].label}
+                  {targets.map((s, i) => (
+                    <button key={s.key} type="button" className={`btn btn--small ${i === 0 ? "btn--ink" : ""}`} onClick={() => setDealing(s)} data-testid={s.theme ? "ws-deal-theme" : `ws-deal-${s.slot}`}>
+                      {i === 0 ? `Deal me 3: ${s.theme ? s.label : s.label.toLowerCase()}` : s.label}
                     </button>
                   ))}
                 </div>
@@ -647,13 +679,14 @@ export default function Workshop() {
         <CardPicks
           ws={ws}
           slot={dealing.slot}
-          note={pickSlots(checks).find((s) => s.slot === dealing.slot)?.note}
-          auth={ownKey ? { apiKey: key.key || undefined, savedKey: !key.key && !!key.saved } : { free: true }}
+          theme={dealing.theme}
+          note={targets.find((s) => s.key === dealing.key)?.note ?? dealing.note}
+          auth={ownKey ? keyAuth : { free: true }}
           getTurnstile={human.take}
           freeLeft={ownKey ? undefined : (deals?.remaining ?? 0)}
           onDealt={refreshDeals}
-          passed={passed[dealing.slot] ?? []}
-          onPass={(names) => setPassed((p) => ({ ...p, [dealing.slot]: [...new Set([...(p[dealing.slot] ?? []), ...names])] }))}
+          passed={passed[dealing.key] ?? []}
+          onPass={(names) => setPassed((p) => ({ ...p, [dealing.key]: [...new Set([...(p[dealing.key] ?? []), ...names])] }))}
           onKeep={add}
           onNeedKey={() => {
             setDealing(null);
@@ -664,7 +697,7 @@ export default function Workshop() {
       ) : null}
       <KeySheet
         open={keySheet}
-        lead="Card picks use your own Claude API key. You pay Anthropic directly; picks run on Claude Haiku."
+        lead="Card picks and deck plans use your own Claude API key. You pay Anthropic directly; they run on Claude Haiku."
         value={key}
         onChange={setKey}
         onClose={() => setKeySheet(false)}
@@ -717,7 +750,22 @@ function CardActions({ ws, card, onAdd, onRemove, onRole }: { ws: WorkshopDeck; 
   );
 }
 
-function SearchPane({ ws, slot, setSlot, onAdd, onOpen }: { ws: WorkshopDeck; slot: string; setSlot: (s: string) => void; onAdd: (c: CardInfo) => void; onOpen: (c: CardInfo) => void }) {
+function SearchPane({
+  ws,
+  slot,
+  setSlot,
+  onAdd,
+  onOpen,
+  plan,
+}: {
+  ws: WorkshopDeck;
+  slot: string;
+  setSlot: (s: string) => void;
+  onAdd: (c: CardInfo) => void;
+  onOpen: (c: CardInfo) => void;
+  /** Claude's plan (or the offer to sketch one); its theme chips run their search here */
+  plan: (active: string, onTheme: (t: PlanTheme) => void) => ReactNode;
+}) {
   const [q, setQ] = useState("");
   const [type, setType] = useState("");
   const [mv, setMv] = useState("");
@@ -793,6 +841,13 @@ function SearchPane({ ws, slot, setSlot, onAdd, onOpen }: { ws: WorkshopDeck; sl
   return (
     <section className="ws-pane ws-search panel" data-pane="search" aria-labelledby="ws-search-h">
       <h2 id="ws-search-h">Find cards</h2>
+      {/* a theme runs its own search: the one the server checked when Claude named it */}
+      {plan(q.trim(), (t) => {
+        setQ(q.trim() === t.query ? "" : t.query);
+        setSlot("");
+        setType("");
+        setMv("");
+      })}
       <label className="ws-q">
         <span className="visually-hidden">Search cards</span>
         <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name, type or rules text" data-testid="ws-q" />

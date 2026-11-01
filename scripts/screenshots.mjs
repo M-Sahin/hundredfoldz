@@ -48,6 +48,24 @@ const workshopDeck = async (p) => {
   const total = await p.textContent("[data-testid=ws-total]");
   console.log(`workshop: ${total} cards after 3 picks and the basic lands`);
 };
+// a scripted deck plan for the /api/coach stand-in below (CI has no Claude): themes whose
+// searches are real Scryfall searches (tapping a theme runs one)
+const fakeCoach = async (route) => {
+  const req = route.request();
+  if (req.method() === "GET") return route.fulfill({ json: { enabled: true, limit: 5, used: 0, remaining: 5, model: "claude-haiku-5-5" } });
+  const body = req.postDataJSON() ?? {};
+  const themes = [
+    { name: "Sacrifice for value", why: "Meren brings back what you sacrifice, so every outlet becomes a loop.", query: "otag:sacrifice-outlet", total: 180 },
+    { name: "Death triggers", why: "Each creature that dies feeds Meren and drains the table.", query: 'o:"whenever another creature you control dies"', total: 120 },
+    { name: "Self-mill to fill the yard", why: "More creatures in the graveyard, better returns at the end step.", query: "otag:self-mill t:creature", total: 90 },
+  ];
+  const usage = { type: "usage", usage: { calls: 2, input: 3000, output: 400, cacheRead: 9000, cacheWrite: 0 }, model: "claude-haiku-5-5" };
+  const lines =
+    body.mode === "plan"
+      ? [{ type: "status", text: "Checking the searches on Scryfall" }, ...themes.map((theme) => ({ type: "theme", theme })), usage, { type: "done", ms: 5000, picks: themes.length }]
+      : [{ type: "status", text: "Claude couldn't find cards that fit" }, usage, { type: "done", ms: 3000, picks: 0 }];
+  await route.fulfill({ status: 200, contentType: "application/x-ndjson; charset=utf-8", body: lines.map((l) => JSON.stringify(l)).join("\n") + "\n" });
+};
 // the workshop's pickers: a commander from its name, then (when it can have one) the partner picker
 const CMD_PICKER = "[aria-label=\"Type a commander's name\"]";
 const pickCommander = async (p, name) => {
@@ -69,6 +87,7 @@ const pickInfo = new Map();
 const standInDeals = async (p, onDeal = () => {}) => {
   await p.route("**/api/coach", async (route) => {
     if (route.request().method() !== "POST") return route.fulfill({ json: { enabled: true, limit: 3, remaining: 3 } });
+    if (route.request().postDataJSON()?.mode === "plan") return fakeCoach(route); // a deck plan: the scripted themes above
     const req = route.request().postDataJSON();
     onDeal(req);
     const skip = new Set([...req.cards.map((c) => c.name), ...req.passed].map((n) => n.toLowerCase()));
@@ -89,6 +108,19 @@ const dealThree = async (p) => {
   await p.waitForSelector("[data-testid=card-picks][open]", { timeout: 10000 });
   // a free deal waits for the bot check's token first (the test keys pass), then the stream
   await p.waitForFunction(() => document.querySelectorAll("[data-testid=card-picks] [data-testid=pick]").length === 3, null, { timeout: 45000 });
+};
+// the deck plan: sketch one, then tap its first theme (the search runs on real Scryfall)
+const workshopPlan = async (p) => {
+  if (await p.locator("[data-testid=ws-tab-search]").isVisible()) await p.click("[data-testid=ws-tab-search]");
+  await p.click("[data-testid=ws-plan-go]");
+  await p.waitForSelector("[data-testid=ws-plan]", { timeout: 15000 });
+  await p.click("[data-testid=ws-plan-theme] >> nth=0");
+  await p.waitForSelector("[data-testid=ws-results] li", { timeout: 20000 });
+  const q = await p.inputValue("[data-testid=ws-q]");
+  const deals = await p.locator("[data-testid=ws-deal-theme]").count();
+  console.log(`workshop plan: theme search "${q}", ${deals} themes to deal for`);
+  if (q !== "otag:sacrifice-outlet") errors.push(`tapping a plan theme searched for "${q}"`);
+  if (deals !== 3) errors.push(`Deal me 3 offers ${deals} plan themes, not 3`);
 };
 const toResult = async (p) => {
   await loadSeeds(p);
@@ -851,6 +883,7 @@ await run("40-phone-sweep", { width: 360, height: 740 }, async (p) => {
     await p.click("[data-testid=ws-more]");
     await p.waitForFunction((n) => document.querySelectorAll("[data-testid=ws-results] > li").length > n, before, { timeout: 20000 });
   });
+  await step("workshop plan", async () => workshopPlan(p));
   await step("workshop checks", async () => p.click("[data-testid=ws-tab-checks]"));
   await step("workshop numbers", async () => {
     await p.click("[data-testid=ws-tab-deck]");
@@ -912,6 +945,11 @@ await run("45-workshop", { width: 1440, height: 1000 }, async (p) => {
   console.log(`workshop search: ${before} results, ${names.length} after Show more`);
   if (names.length <= before) errors.push(`Show more didn't add results in the workshop search (${before} before, ${names.length} after)`);
   if (new Set(names).size !== names.length) errors.push("Show more repeated a card in the workshop search");
+});
+await run("48-workshop-plan", { width: 1440, height: 1000 }, async (p) => {
+  await standInDeals(p);
+  await workshopDeck(p);
+  await workshopPlan(p);
 });
 // a pasted decklist opens in the workshop (real Scryfall); a made-up card is named as left out
 await run("47-workshop-paste", { width: 1440, height: 1000 }, async (p) => {

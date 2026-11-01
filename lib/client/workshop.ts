@@ -3,17 +3,18 @@
 // My decks the way the build page does: into the account when logged in, else into this browser.
 import type { Deck } from "../shared/types";
 import { EMPTY_WORKSHOP, type WorkshopDeck } from "../shared/workshop";
+import { readPlan } from "../shared/coach";
 import { encodeDeck } from "../shared/share";
 import { myDecks, storage, type SavedDeck } from "./api";
 import { cloudDecks, loadAccount } from "./account";
 
 const draftStore = storage<WorkshopDeck>("hundredfold:workshop");
 
-/** The deck being built (with every card's Scryfall data, so a reload needs no lookups). */
+/** The deck being built (with every card's Scryfall data, so a reload needs no lookups) and its plan. */
 export const workshopDraft = {
   get(): WorkshopDeck {
     const v = draftStore.get();
-    return v && Array.isArray(v.cards) ? { ...EMPTY_WORKSHOP, ...v } : EMPTY_WORKSHOP;
+    return v && Array.isArray(v.cards) ? { ...EMPTY_WORKSHOP, ...v, plan: readPlan(v.plan) } : EMPTY_WORKSHOP;
   },
   set(ws: WorkshopDeck) {
     draftStore.set(ws.commander || ws.cards.length ? ws : null);

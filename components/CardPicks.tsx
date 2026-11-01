@@ -2,11 +2,12 @@
 // "Deal me 3": Claude deals three cards for one slot of the workshop deck, each with a line on why
 // it fits. They arrive one by one as the server checks them; keep any, or deal three more (the ones
 // passed on aren't offered again). An optional "Steer it" line says what to look for. Runs on the
-// visitor's own key, or on one of the site's free deals (a bot-check token per deal).
+// visitor's own key, or on one of the site's free deals (a bot-check token per deal). A deal can be
+// for a slot or for one theme of the deck's plan.
 import { useEffect, useRef, useState } from "react";
 import { CardFace, ManaCost } from "./CardFace";
 import { ApiError, coachDeal } from "../lib/client/api";
-import { COACH_SLOTS, PICKS, type CoachSlot } from "../lib/shared/coach";
+import { COACH_SLOTS, PICKS, type CoachSlot, type PlanTheme } from "../lib/shared/coach";
 import { costUsd, formatCost } from "../lib/shared/models";
 import type { CardInfo } from "../lib/shared/types";
 import { canAdd, colorWords, workshopIdentity, type WorkshopDeck } from "../lib/shared/workshop";
@@ -19,6 +20,7 @@ interface Pick {
 export function CardPicks({
   ws,
   slot,
+  theme,
   note,
   auth,
   getTurnstile,
@@ -32,6 +34,8 @@ export function CardPicks({
 }: {
   ws: WorkshopDeck;
   slot: CoachSlot;
+  /** a theme of the deck's plan to deal for (the slot is then "synergy") */
+  theme?: PlanTheme;
   /** e.g. "Card draw: 2 of 9–12" */
   note?: string;
   /** the visitor's own key, or `free`: one of the site's free deals */
@@ -78,6 +82,7 @@ export function CardPicks({
         bracket: w.bracket,
         cards: w.cards.map((c) => ({ name: c.name, qty: c.qty })),
         slot,
+        ...(theme ? { theme: { name: theme.name, query: theme.query } } : {}),
         passed: skip,
         ...(steer.trim() ? { steer: steer.trim() } : {}),
       };
@@ -121,7 +126,7 @@ export function CardPicks({
     void deal(all);
   };
 
-  const label = COACH_SLOTS[slot].label;
+  const label = theme ? `Theme: ${theme.name}` : COACH_SLOTS[slot].label;
   return (
     <dialog ref={ref} className="modal picks" onClose={onClose} onClick={(e) => e.target === ref.current && onClose()} aria-labelledby="picks-h" data-testid="card-picks">
       <div className="picks-inner">
@@ -201,15 +206,3 @@ export function CardPicks({
     </dialog>
   );
 }
-
-/** The slots to offer, the deck's biggest gaps first. */
-export function pickSlots(checks: { key: string; label: string; have: number; want: readonly [number, number]; status: string }[]): { slot: CoachSlot; note?: string }[] {
-  const toSlot: Record<string, CoachSlot> = { lands: "land", ramp: "ramp", draw: "draw", removal: "removal", wipe: "wipe", protection: "protection" };
-  const short = checks
-    .filter((c) => c.status === "short")
-    .sort((a, b) => (b.want[0] - b.have) / b.want[0] - (a.want[0] - a.have) / a.want[0])
-    .map((c) => ({ slot: toSlot[c.key], note: `${c.label}: ${c.have} of ${c.want[0]}–${c.want[1]}` }));
-  const rest: { slot: CoachSlot; note?: string }[] = [{ slot: "synergy" }, { slot: "wincon" }];
-  return [...short.filter((s) => s.slot !== "land"), ...rest];
-}
-

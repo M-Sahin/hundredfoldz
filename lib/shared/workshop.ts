@@ -5,6 +5,7 @@ import { COMMANDER_TEMPLATE, bracketInfo } from "./bracket";
 import { guessRole, isLand, type DeckAnalysis } from "./analysis";
 import { copyLimit, pairingAbilities, pairingProblem, rebalanceBasics } from "./validate";
 import type { CardInfo, Color, Deck, DeckCard, Role, Validation } from "./types";
+import type { DeckPlan } from "./coach";
 import { BASIC_FOR_COLOR, isBasicLand } from "./types";
 
 export interface WorkshopDeck {
@@ -15,6 +16,8 @@ export interface WorkshopDeck {
   bracket: number;
   /** The cards besides the commanders, each with its Scryfall data; basics merged with qty. */
   cards: DeckCard[];
+  /** Claude's plan for the deck (themes to search for), when the player asked for one. */
+  plan?: DeckPlan | null;
 }
 
 export const EMPTY_WORKSHOP: WorkshopDeck = { name: "", commander: null, partner: null, bracket: 3, cards: [] };
@@ -90,7 +93,9 @@ export function commanderProblem(c: CardInfo): string | null {
  */
 export function setCommander(ws: WorkshopDeck, c: CardInfo): WorkshopDeck {
   const partner = ws.partner && !pairingProblem(c, ws.partner) ? ws.partner : null;
-  return { ...ws, commander: c, partner, cards: ws.cards.filter((x) => !same(x.name, c.name)) };
+  // a plan is for one commander: a new one clears it
+  const plan = ws.plan && ws.commander && same(ws.commander.name, c.name) ? ws.plan : null;
+  return { ...ws, commander: c, partner, plan, cards: ws.cards.filter((x) => !same(x.name, c.name)) };
 }
 
 /** Can this commander have a second one (Partner, Friends forever, Background, a Doctor's companion…)? */
@@ -111,7 +116,16 @@ export function partnerProblem(ws: WorkshopDeck, c: CardInfo): string | null {
 }
 
 export function setPartner(ws: WorkshopDeck, c: CardInfo | null): WorkshopDeck {
-  return { ...ws, partner: c, cards: c ? ws.cards.filter((x) => !same(x.name, c.name)) : ws.cards };
+  // the plan was made for the commanders as they were: a different pair clears it
+  const plan = (ws.partner?.name ?? "").toLowerCase() === (c?.name ?? "").toLowerCase() ? ws.plan : null;
+  return { ...ws, partner: c, plan, cards: c ? ws.cards.filter((x) => !same(x.name, c.name)) : ws.cards };
+}
+
+/** The deck's plan, if it was made for these commanders. */
+export function currentPlan(ws: WorkshopDeck): DeckPlan | null {
+  const p = ws.plan;
+  if (!p || !ws.commander || !same(p.commander, ws.commander.name)) return null;
+  return (p.partner ?? "").toLowerCase() === (ws.partner?.name ?? "").toLowerCase() ? p : null;
 }
 
 /** The deck as the rest of the app knows it (analysis, validation, sharing, saving). */
