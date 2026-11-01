@@ -939,6 +939,11 @@ button.card {
   line-height: 1.55;
   max-width: 62ch;
 }
+/* Claude's plan, on paper; a little room so the tilt and the shadow aren't cut off by the log's scroll box */
+.forge-plan {
+  align-self: flex-start;
+  margin: 4px 6px 12px;
+}
 .log-status {
   margin: 0;
   color: var(--faint);

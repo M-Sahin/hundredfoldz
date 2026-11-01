@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { describeQuery } from "../lib/shared/query-text";
+import { planNote } from "../lib/shared/plan-note";
 import { ROLE_COLORS } from "../lib/shared/deck-utils";
 import type { Role, Validation } from "../lib/shared/types";
 import { ROLE_LABELS } from "../lib/shared/types";
@@ -66,6 +67,7 @@ export function ForgeView({
   const cells = Array.from({ length: 100 }, (_, i) => (i === 0 ? (commander ? { name: commander, role: "wincon" as Role, cmd: true } : null) : draft[i - 1] ? { ...draft[i - 1], cmd: false } : i < filled ? { name: "Basic land", role: "land" as Role, cmd: false } : null));
   const count = cells.filter(Boolean).length;
   const legend = [...new Set(draft.map((d) => d.role))];
+  const plan = useMemo(() => planNote(log), [log]);
 
   return (
     <section className="forge playmat" aria-live="polite">
@@ -77,6 +79,16 @@ export function ForgeView({
         {spend ? <p className="forge-spend">So far: {spend}</p> : null}
         <div className="forge-log" ref={logRef}>
           {log.map((item, i) => {
+            if (item.kind === "text" && plan?.index === i)
+              return (
+                <Fragment key={i}>
+                  <div className="paper-note forge-plan" data-testid="forge-plan">
+                    <p className="paper-note-text">{plan.note}</p>
+                    <p className="paper-note-by">Claude&apos;s plan</p>
+                  </div>
+                  {plan.rest ? <p className="log-text">{plan.rest}</p> : null}
+                </Fragment>
+              );
             if (item.kind === "text") return <p key={i} className="log-text">{item.text}</p>;
             if (item.kind === "status") return <p key={i} className="log-status">{item.text}</p>;
             if (item.kind === "tool") {
