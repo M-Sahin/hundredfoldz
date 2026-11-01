@@ -4590,6 +4590,16 @@ main.ws {
 .ws-results.is-busy {
   opacity: 0.6;
 }
+/* under the results: how many are shown, and "Show more" */
+.ws-more {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+.ws-more .note,
+.ws-more .error {
+  margin: 0;
+}
 .ws-results li {
   display: flex;
   align-items: center;

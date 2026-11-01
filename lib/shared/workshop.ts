@@ -98,11 +98,12 @@ export function setCommander(ws: WorkshopDeck, c: CardInfo): WorkshopDeck {
   return { ...ws, commander: c, partner, plan, cards: ws.cards.filter((x) => !same(x.name, c.name)) };
 }
 
-/** Can this commander have a second one (Partner, Friends forever, Background…)? */
+/** Can this commander have a second one (Partner, Friends forever, Background, a Doctor's companion…)? */
 export function canPair(c: CardInfo | null): boolean {
   if (!c) return false;
   const p = pairingAbilities(c);
-  return p.partner || !!p.partnerWith || !!p.partnerGroup || p.friendsForever || p.choosesBackground || p.doctorsCompanion;
+  // a Doctor can lead with a Doctor's companion, the other way round from the companion's ability
+  return p.partner || !!p.partnerWith || !!p.partnerGroup || p.friendsForever || p.choosesBackground || p.doctorsCompanion || p.isDoctor;
 }
 
 /** Why these two can't share the command zone, or null. */
@@ -255,4 +256,32 @@ export function fillBasics(ws: WorkshopDeck, target = 36): { ws: WorkshopDeck; a
 export function withInfo(ws: WorkshopDeck, infos: CardInfo[]): WorkshopDeck {
   const by = new Map(infos.map((i) => [i.name.toLowerCase(), i]));
   return { ...ws, cards: ws.cards.map((c) => (c.info ? c : { ...c, info: by.get(c.name.toLowerCase()) })) };
+}
+
+/** One step back: the deck before a change, and what the change was ("Added Sol Ring"). */
+export interface UndoStep {
+  deck: WorkshopDeck;
+  label: string;
+  /** Changes with the same kind in a row (typing the deck name) are one step. */
+  kind?: string;
+}
+
+/** How many changes Undo can take back. */
+export const UNDO_LIMIT = 20;
+
+/**
+ * The undo steps after a change from `before`, newest last, at most `limit` of them. Nothing is
+ * kept when there's nothing to go back to (an empty workshop), and a change of the same `kind` as
+ * the one just before it (each letter of the deck name) folds into that step.
+ */
+export function pushUndo(steps: UndoStep[], before: WorkshopDeck, label: string, kind?: string, limit = UNDO_LIMIT): UndoStep[] {
+  if (!before.commander && !before.cards.length) return steps;
+  const last = steps[steps.length - 1];
+  if (kind && last?.kind === kind) return steps;
+  return [...steps, { deck: before, label, kind }].slice(-limit);
+}
+
+/** Take back the newest change: the deck to go back to and the steps left, or null with none. */
+export function popUndo(steps: UndoStep[]): { step: UndoStep; rest: UndoStep[] } | null {
+  return steps.length ? { step: steps[steps.length - 1], rest: steps.slice(0, -1) } : null;
 }
