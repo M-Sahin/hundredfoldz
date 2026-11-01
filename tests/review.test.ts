@@ -8,6 +8,7 @@ import type { DeckAnalysis } from "../lib/shared/analysis";
 import type { OpenerReport } from "../lib/shared/openers";
 import { installFakeScryfall } from "./fixtures";
 import { DEMO_SUBMISSION } from "../lib/server/demo";
+import { fromDeck } from "../lib/shared/workshop";
 
 const analysis = (over: Partial<DeckAnalysis> = {}): DeckAnalysis =>
   ({
@@ -86,6 +87,30 @@ test("an uploaded list shows like a built deck: roles read from the card text, a
     assert.equal(v.deck.bracket, Math.min(4, report.bracket));
     assert.ok(Array.isArray(v.validation.errors));
   } finally {
+    fake.restore();
+  }
+});
+
+test("a pasted list opens in the workshop: the quick read skips the combo lookup and the opening hands", async () => {
+  const fake = installFakeScryfall();
+  const calls: string[] = [];
+  const seen = globalThis.fetch;
+  globalThis.fetch = ((u: any, init?: any) => (calls.push(String(u)), seen(u, init))) as typeof fetch;
+  try {
+    const list = ["Commander", "1 Meren of Clan Nel Toth", "", "Deck", ...DEMO_SUBMISSION.cards.map((c) => `1 ${c.name}`), ...Object.entries(DEMO_SUBMISSION.basics ?? {}).map(([n, q]) => `${q} ${n}`), "1 Not A Real Card"].join("\n");
+    const { report, deck, notFound } = await readDeck(list, { quick: true });
+    assert.equal(report.analysis, null);
+    assert.equal(report.openers, null);
+    assert.equal(report.combos.checked, false);
+    assert.ok(!calls.some((u) => /spellbook/i.test(u)), "no Commander Spellbook call");
+    assert.deepEqual(notFound, ["Not A Real Card"]);
+    const ws = fromDeck(asViewedDeck(deck, report.bracket, notFound).deck);
+    assert.equal(ws.commander?.name, "Meren of Clan Nel Toth");
+    assert.equal(ws.name, "", "named after the commander, not \"Meren of Clan Nel Toth's deck\"");
+    assert.equal(ws.cards.reduce((n, c) => n + c.qty, 0), report.total - 2, "every card Scryfall knows (not the commander, not the made-up card)");
+    assert.ok(ws.cards.every((c) => c.info));
+  } finally {
+    globalThis.fetch = seen;
     fake.restore();
   }
 });
