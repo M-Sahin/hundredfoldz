@@ -4742,21 +4742,71 @@ main.ws {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px 4px;
 }
-.ws-check-row {
+/* three to a row in the side pane and on a phone, all six in one row when the panel is wide */
+.ws-checks-panel {
+  container-type: inline-size;
+}
+@container (min-width: 520px) {
+  .ws-checklist {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+.ws-checklist li {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  text-align: center;
+  line-height: 1.25;
+}
+@property --fill {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+.ws-ring {
+  --ring: var(--ok);
+  width: 62px;
+  height: 62px;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: conic-gradient(var(--ring) calc(var(--fill) * 1%), #3c4378 0);
+  transition: --fill 300ms ease-out;
+}
+.ws-ring span {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: var(--pressed);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 21px;
+  font-variant-numeric: tabular-nums;
+}
+.ws-checklist .is-short .ws-ring,
+.ws-checklist .is-over .ws-ring {
+  --ring: var(--warn);
+}
+.ws-check-label {
   font-size: 15px;
 }
-.ws-check-row small {
+.ws-checklist small {
   color: var(--muted);
   font-size: 14px;
 }
 .ws-check-status {
-  font-size: 13px;
-  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 700;
 }
 .ws-checklist .is-ok .ws-check-status {
   color: var(--ok);
@@ -4765,31 +4815,10 @@ main.ws {
 .ws-checklist .is-over .ws-check-status {
   color: var(--warn);
 }
-.ws-bar-track {
-  position: relative;
-  height: 6px;
-  margin-top: 5px;
-  border-radius: 99px;
-  background: var(--line);
-}
-.ws-bar-track span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--ok);
-  transition: width 200ms;
-}
-.ws-checklist .is-short .ws-bar-track span,
-.ws-checklist .is-over .ws-bar-track span {
-  background: var(--warn);
-}
-.ws-bar-track i {
-  position: absolute;
-  top: -3px;
-  width: 2px;
-  height: 12px;
-  background: var(--ink);
-  opacity: 0.5;
+@media (prefers-reduced-motion: reduce) {
+  .ws-ring {
+    transition: none;
+  }
 }
 .ws-checks h3 {
   font-family: var(--font-display);
