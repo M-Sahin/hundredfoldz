@@ -40,10 +40,14 @@ export interface CardSearch {
   mv?: string;
 }
 
-/** The deck workshop's search: Commander-legal cards in these colors, most played first. */
-export async function searchCards(s: CardSearch, signal?: AbortSignal): Promise<{ total: number; cards: CardInfo[]; error?: string }> {
+/**
+ * The deck workshop's search: Commander-legal cards in these colors, most played first, 40 at a
+ * time. `from` is the `next` of the answer before (for "Show more"); `next` is null at the end.
+ */
+export async function searchCards(s: CardSearch, signal?: AbortSignal, from = 0): Promise<{ total: number; cards: CardInfo[]; next: number | null; error?: string }> {
   const p = new URLSearchParams({ id: s.colors.join("").toLowerCase() || "c" });
   for (const k of ["q", "slot", "type", "mv"] as const) if (s[k]) p.set(k, s[k]!);
+  if (from > 0) p.set("from", String(from));
   const r = await fetch(`/api/cards/search?${p}`, { signal });
   const j = await r.json();
   if (!r.ok) throw new Error(j.error ?? "Search failed");

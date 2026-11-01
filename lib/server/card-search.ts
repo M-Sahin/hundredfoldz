@@ -1,10 +1,10 @@
 // GET /api/cards/search for the deck workshop: Scryfall search limited to the commander's colors
 // and to Commander-legal cards, with filters for a slot (ramp, draw…), a card type and mana value.
 // The slot filters use Scryfall Tagger tags, the ones scripts/calibrate-analysis.mjs checks the
-// role detector against.
+// role detector against. Results come 40 at a time; "Show more" asks again with `from`.
 import { LIMITS, guard } from "./ratelimit";
-import { search } from "./scryfall";
-import type { Color } from "../shared/types";
+import { SCRYFALL_PAGE, searchPage } from "./scryfall";
+import type { CardInfo, Color } from "../shared/types";
 
 export const SLOTS = {
   ramp: "otag:ramp -t:land",
@@ -29,7 +29,14 @@ export interface SearchParams {
   slot?: Slot;
   type?: CardType;
   mv?: Mv;
+  /** how many results the player has already seen (0 = the first page) */
+  from?: number;
 }
+
+/** Results per request. */
+export const PAGE_SIZE = 40;
+/** How deep "Show more" can go. */
+export const MAX_FROM = 5000;
 
 /**
  * Plain words ("creature dies") look in names, rules text and type lines; Scryfall's bare words only
@@ -54,7 +61,42 @@ export function readParams(url: URL): SearchParams {
   const slot = Object.hasOwn(SLOTS, g("slot")) ? (g("slot") as Slot) : undefined;
   const type = (TYPES as readonly string[]).includes(g("type")) ? (g("type") as CardType) : undefined;
   const mv = Object.hasOwn(MVS, g("mv")) ? (g("mv") as Mv) : undefined;
-  return { q: g("q"), colors, slot, type, mv };
+  const from = Math.min(MAX_FROM, Math.max(0, Math.floor(Number(g("from")) || 0)));
+  return { q: g("q"), colors, slot, type, mv, from };
+}
+
+export interface CardPage {
+  total: number;
+  cards: CardInfo[];
+  /** where the next request starts, or null when there are no more */
+  next: number | null;
+  error?: string;
+}
+
+/**
+ * The PAGE_SIZE cards after the first `from`, most played first. Scryfall pages its results 175 at
+ * a time, so a request can span the end of one page and the start of the next; both pages are
+ * cached. A card can't appear twice in one answer.
+ */
+export async function searchFrom(q: string, from = 0): Promise<CardPage> {
+  const page = Math.floor(from / SCRYFALL_PAGE) + 1;
+  const first = await searchPage(q, "edhrec", page);
+  let raw = first.cards.slice(from - (page - 1) * SCRYFALL_PAGE);
+  let more = first.hasMore;
+  if (raw.length < PAGE_SIZE && more) {
+    const second = await searchPage(q, "edhrec", page + 1);
+    raw = raw.concat(second.cards);
+    more = second.hasMore;
+  }
+  const taken = raw.slice(0, PAGE_SIZE);
+  const seen = new Set<string>();
+  const cards = taken.filter((c) => {
+    const k = c.name.toLowerCase();
+    return !seen.has(k) && !!seen.add(k);
+  });
+  const end = from + taken.length;
+  const next = taken.length && (raw.length > PAGE_SIZE || more) && end < MAX_FROM ? end : null;
+  return { total: first.total, cards, next, ...(first.error ? { error: first.error } : {}) };
 }
 
 export async function handleCardSearch(request: Request): Promise<Response> {
@@ -63,11 +105,11 @@ export async function handleCardSearch(request: Request): Promise<Response> {
   const p = readParams(new URL(request.url));
   if (!p.q?.trim() && !p.slot && !p.type && !p.mv) return Response.json({ error: "Type a card name or text, or pick a filter." }, { status: 400 });
   try {
-    const r = await search(searchQuery(p), "edhrec", 40);
+    const r = await searchFrom(searchQuery(p), p.from);
     // a 404 from Scryfall means "no matches"; anything else is a query it couldn't read
     const none = r.error && /didn.t match any cards/i.test(r.error); // Scryfall writes "didn’t"
     return Response.json(
-      { total: r.total, cards: r.cards, ...(r.error && !none ? { error: r.error } : {}) },
+      { total: r.total, cards: r.cards, next: r.next, ...(r.error && !none ? { error: r.error } : {}) },
       { headers: { "Cache-Control": "public, s-maxage=3600" } },
     );
   } catch (e) {

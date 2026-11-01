@@ -830,6 +830,11 @@ await run("40-phone-sweep", { width: 360, height: 740 }, async (p) => {
   await step("workshop paste box", async () => p.click("[data-testid=ws-import-open]"));
   await step("workshop deck", async () => workshopDeck(p));
   await step("workshop search", async () => p.click("[data-testid=ws-tab-search]"));
+  await step("workshop more results", async () => {
+    const before = await p.locator("[data-testid=ws-results] > li").count();
+    await p.click("[data-testid=ws-more]");
+    await p.waitForFunction((n) => document.querySelectorAll("[data-testid=ws-results] > li").length > n, before, { timeout: 20000 });
+  });
   await step("workshop checks", async () => p.click("[data-testid=ws-tab-checks]"));
   await step("workshop numbers", async () => {
     await p.click("[data-testid=ws-tab-deck]");
@@ -873,7 +878,20 @@ await run("7-mobile-setup", { width: 390, height: 844 }, async (p) => {
   if (overflow > 1) errors.push(`setup page scrolls sideways on a phone (${overflow}px)`);
 });
 await run("8-mobile-result", { width: 390, height: 844 }, toResult);
-await run("45-workshop", { width: 1440, height: 1000 }, workshopDeck);
+await run("45-workshop", { width: 1440, height: 1000 }, async (p) => {
+  await workshopDeck(p);
+  // Show more adds the next 40 under the first ones, none of them twice
+  await p.fill("[data-testid=ws-q]", "");
+  await p.click("[data-testid=ws-slot-removal]");
+  await p.waitForSelector("[data-testid=ws-more]", { timeout: 20000 });
+  const before = await p.locator("[data-testid=ws-results] > li").count();
+  await p.click("[data-testid=ws-more]");
+  await p.waitForFunction((n) => document.querySelectorAll("[data-testid=ws-results] > li").length > n, before, { timeout: 20000 }).catch(() => {});
+  const names = await p.locator("[data-testid=ws-results] .ws-result-name").allTextContents();
+  console.log(`workshop search: ${before} results, ${names.length} after Show more`);
+  if (names.length <= before) errors.push(`Show more didn't add results in the workshop search (${before} before, ${names.length} after)`);
+  if (new Set(names).size !== names.length) errors.push("Show more repeated a card in the workshop search");
+});
 // a pasted decklist opens in the workshop (real Scryfall); a made-up card is named as left out
 await run("47-workshop-paste", { width: 1440, height: 1000 }, async (p) => {
   await p.goto(`${base}/workshop`, { waitUntil: "networkidle" });

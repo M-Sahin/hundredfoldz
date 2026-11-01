@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { toCardInfo } from "../lib/server/scryfall";
-import { handleCardSearch, readParams, searchQuery } from "../lib/server/card-search";
+import { MAX_FROM, PAGE_SIZE, handleCardSearch, readParams, searchFrom, searchQuery } from "../lib/server/card-search";
 import { analyzeDeck, guessRole } from "../lib/shared/analysis";
 import { validateDeck } from "../lib/shared/validate";
 import {
@@ -166,7 +166,7 @@ test("search queries stay in the commander's colors and Commander-legal", () => 
   assert.equal(searchQuery({ q: "creature dies", colors: ["B"] }), '(creature dies or o:"creature dies" or t:"creature dies") id<=b f:commander');
   assert.equal(searchQuery({ q: "t:goblin -t:creature", colors: ["R"] }), "(t:goblin -t:creature) id<=r f:commander");
   const p = readParams(new URL("http://x/api/cards/search?q=elf&id=gbx&slot=constructor&type=goblin&mv=9"));
-  assert.deepEqual(p, { q: "elf", colors: ["G", "B"], slot: undefined, type: undefined, mv: undefined });
+  assert.deepEqual(p, { q: "elf", colors: ["G", "B"], slot: undefined, type: undefined, mv: undefined, from: 0 });
 });
 
 test("the search endpoint asks Scryfall with the filters, and no matches is an empty list", async () => {
@@ -184,7 +184,59 @@ test("the search endpoint asks Scryfall with the filters, and no matches is an e
     const sent = new URL(fake.calls.find((u) => u.includes("/cards/search"))!).searchParams.get("q");
     assert.equal(sent, "id<=bg f:commander otag:removal -otag:board-wipe -t:land");
     const none = await (await handleCardSearch(new Request("http://x/api/cards/search?id=bg&q=nothingmatches"))).json();
-    assert.deepEqual(none, { total: 0, cards: [] });
+    assert.deepEqual(none, { total: 0, cards: [], next: null });
+  } finally {
+    fake.restore();
+  }
+});
+
+test("Show more: 40 at a time across Scryfall's 175-card pages, the filters on every page, no card twice", async () => {
+  const fake = installFakeScryfall();
+  const pages = () => fake.calls.filter((u) => u.includes("/cards/search")).map((u) => new URL(u).searchParams);
+  try {
+    // the first 40, and where the next ones start
+    const r = await handleCardSearch(new Request("http://x/api/cards/search?id=bg&slot=draw&q=manycards"));
+    const first = await r.json();
+    assert.equal(first.total, 400);
+    assert.equal(first.cards.length, PAGE_SIZE);
+    assert.equal(first.cards[0].name, "Card 001");
+    assert.equal(first.next, 40);
+    // the next 40 ask Scryfall for the same search, with the colors, legality and slot filters
+    const second = await (await handleCardSearch(new Request("http://x/api/cards/search?id=bg&slot=draw&q=manycards&from=40"))).json();
+    assert.deepEqual([second.cards[0].name, second.cards.at(-1).name, second.next], ["Card 041", "Card 080", 80]);
+    for (const p of pages()) {
+      assert.match(p.get("q")!, /\(manycards .*\) id<=bg f:commander otag:card-advantage -t:land$/);
+      assert.equal(p.get("order"), "edhrec");
+    }
+    // a page that starts on Scryfall's first page and ends on its second asks for both
+    const span = await searchFrom("manycards", 160);
+    assert.deepEqual([span.cards[0].name, span.cards.at(-1)!.name, span.cards.length, span.next], ["Card 161", "Card 200", 40, 200]);
+    assert.ok(pages().some((p) => p.get("q") === "manycards" && p.get("page") === "2"));
+
+    // following `next` to the end shows every card once, in order, and then stops
+    const walk = async (q: string) => {
+      const names: string[] = [];
+      let from: number | null = 0;
+      while (from !== null) {
+        const page: Awaited<ReturnType<typeof searchFrom>> = await searchFrom(q, from);
+        names.push(...page.cards.map((c) => c.name));
+        from = page.next;
+      }
+      return names;
+    };
+    const all = await walk("manycards");
+    assert.equal(all.length, 400);
+    assert.deepEqual(all, [...all].sort());
+    // Scryfall's order shifted between two pages (page 2 repeats a card from page 1): still once
+    const shifted = await walk("manycards overlap");
+    assert.equal(new Set(shifted).size, shifted.length);
+    assert.equal(shifted.length, 400);
+
+    // `from` is read as a whole number in range
+    assert.equal(readParams(new URL("http://x/?from=-3")).from, 0);
+    assert.equal(readParams(new URL("http://x/?from=12.7")).from, 12);
+    assert.equal(readParams(new URL("http://x/?from=abc")).from, 0);
+    assert.equal(readParams(new URL("http://x/?from=99999999")).from, MAX_FROM);
   } finally {
     fake.restore();
   }
