@@ -185,6 +185,7 @@ function Report({ days, store }: { days: Day[]; store: string }) {
             rows={[
               ["Commanders picked", t["workshop|opened"]],
               ["Decks brought in to edit", t["workshop|from_deck"]],
+              ["Decklists pasted in", t["workshop|from_list"]],
               ["Handed to Claude to finish", t["workshop|finish"]],
               ["Handed to Claude for a review", t["workshop|review"]],
               ["Card picks dealt (own key)", t["coach_deal|own"]],

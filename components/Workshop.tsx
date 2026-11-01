@@ -22,7 +22,7 @@ import { simulateOpeners } from "../lib/shared/openers";
 import { ROLE_COLORS, byRole, exportText, price } from "../lib/shared/deck-utils";
 import { money } from "../lib/shared/currency";
 import { encodeDeck } from "../lib/shared/share";
-import { ROLES, ROLE_LABELS, isBasicLand, type CardInfo, type DeckCard, type Role } from "../lib/shared/types";
+import { ROLES, ROLE_LABELS, isBasicLand, type CardInfo, type Deck, type DeckCard, type Role } from "../lib/shared/types";
 import {
   EMPTY_WORKSHOP,
   addCard,
@@ -55,6 +55,7 @@ import { useSiteConfig } from "../lib/client/site-config";
 import { useAccount } from "../lib/client/account";
 import { track } from "../lib/client/track";
 import { TableArt } from "./TableArt";
+import { DecklistImport } from "./DecklistImport";
 import { useCardPeek } from "./CardPeek";
 
 type Pane = "search" | "deck" | "checks";
@@ -102,6 +103,8 @@ export default function Workshop() {
   const [pane, setPane] = useState<Pane>("deck");
   const [slot, setSlot] = useState("");
   const [picking, setPicking] = useState<"commander" | "partner" | null>(null);
+  const [importing, setImporting] = useState(false); // the "Start from a decklist" box is open
+  const [leftOut, setLeftOut] = useState<string[]>([]); // a pasted list's cards Scryfall didn't know
   const [open, setOpen] = useState<DeckCard | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -208,6 +211,24 @@ export default function Workshop() {
       setError((e as Error).message);
     }
   };
+  // a pasted decklist, read on the server: it replaces the deck in progress (which the toast can bring back)
+  const openList = (d: Deck, notFound: string[]) => {
+    // the bracket the list fits so far is a floor, not the goal: start at the workshop's usual 3 unless it needs more
+    const next = fromDeck({ ...d, bracket: Math.max(3, d.bracket ?? 3) });
+    const n = 1 + (next.partner ? 1 : 0) + next.cards.reduce((s, c) => s + c.qty, 0);
+    track("workshop|from_list");
+    setImporting(false);
+    setPicking(null);
+    setPane("deck");
+    setLeftOut(notFound);
+    setError(null);
+    if (ws.commander || ws.cards.length) change(next, `Opened your list: ${n} cards. Your earlier workshop deck was put aside.`);
+    else {
+      setWs(next);
+      setSaved(null);
+      say({ text: `Opened your list: ${n} cards.`, tone: "good" });
+    }
+  };
   const surprise = async () => {
     setError(null);
     try {
@@ -254,7 +275,10 @@ export default function Workshop() {
     setPane("search");
   };
 
-  const startOver = () => change(EMPTY_WORKSHOP, "Started over.");
+  const startOver = () => {
+    setLeftOut([]);
+    change(EMPTY_WORKSHOP, "Started over.");
+  };
 
   const toastEl = toast ? (
     <div className={`ws-toast is-${toast.tone}`} role="status">
@@ -302,12 +326,18 @@ export default function Workshop() {
               <button type="button" className="btn" onClick={() => void surprise()} data-testid="ws-surprise">
                 Surprise me
               </button>
+              {!importing ? (
+                <button type="button" className="btn btn--quiet" onClick={() => setImporting(true)} data-testid="ws-import-open">
+                  Start from a decklist
+                </button>
+              ) : null}
               {ws.commander ? (
                 <button type="button" className="btn btn--quiet" onClick={() => setPicking(null)}>
                   Keep {ws.commander.name}
                 </button>
               ) : null}
             </div>
+            {importing ? <DecklistImport onOpen={openList} onCancel={() => setImporting(false)} /> : null}
             {error ? (
               <p className="error" role="alert">
                 {error}
@@ -413,6 +443,14 @@ export default function Workshop() {
           {saved === "account" || saved === "browser" ? (
             <p className="note ws-saved" role="status">
               {saved === "account" ? "Saved to My decks." : "Saved in this browser."} <a href="/decks">Open My decks</a>
+            </p>
+          ) : null}
+          {leftOut.length ? (
+            <p className="note ws-saved" role="status" data-testid="ws-left-out">
+              Not found on Scryfall, so left out: {leftOut.join(", ")}.{" "}
+              <button type="button" className="link" onClick={() => setLeftOut([])}>
+                OK
+              </button>
             </p>
           ) : null}
           {error ? (

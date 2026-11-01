@@ -796,6 +796,7 @@ await run("40-phone-sweep", { width: 360, height: 740 }, async (p) => {
     await p.click("[data-testid=deck-delete]");
   });
   await step("workshop commander", async () => p.goto(`${base}/workshop`, { waitUntil: "networkidle" }));
+  await step("workshop paste box", async () => p.click("[data-testid=ws-import-open]"));
   await step("workshop deck", async () => workshopDeck(p));
   await step("workshop search", async () => p.click("[data-testid=ws-tab-search]"));
   await step("workshop checks", async () => p.click("[data-testid=ws-tab-checks]"));
@@ -822,6 +823,20 @@ await run("7-mobile-setup", { width: 390, height: 844 }, async (p) => {
 });
 await run("8-mobile-result", { width: 390, height: 844 }, toResult);
 await run("45-workshop", { width: 1440, height: 1000 }, workshopDeck);
+// a pasted decklist opens in the workshop (real Scryfall); a made-up card is named as left out
+await run("47-workshop-paste", { width: 1440, height: 1000 }, async (p) => {
+  await p.goto(`${base}/workshop`, { waitUntil: "networkidle" });
+  await p.click("[data-testid=ws-import-open]");
+  const list = ["Commander", "1 Meren of Clan Nel Toth", "", "Deck", "1 Sol Ring", "1 Viscera Seer", "1 Blood Artist", "1 Eternal Witness", "1 Not A Real Card", "10 Swamp", "10 Forest"].join("\n");
+  await p.fill("[data-testid=ws-import-list]", list);
+  await p.click("[data-testid=ws-import-go]");
+  await p.waitForSelector("[data-testid=ws-total]", { timeout: 30000 }).catch(() => {});
+  const total = await p.textContent("[data-testid=ws-total]").catch(() => null);
+  const left = await p.textContent("[data-testid=ws-left-out]").catch(() => "");
+  console.log(`workshop paste: ${total} cards; ${left}`);
+  if (total !== "25") errors.push(`a pasted list opened with ${total} cards in the workshop, not 25`);
+  if (!/Not A Real Card/.test(left ?? "")) errors.push("the workshop doesn't say which pasted cards were left out");
+});
 await run("46-workshop-phone", { width: 390, height: 844 }, async (p) => {
   await workshopDeck(p);
   await p.click("[data-testid=ws-tab-checks]");

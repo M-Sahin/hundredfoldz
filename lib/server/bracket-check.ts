@@ -89,8 +89,9 @@ export function asViewedDeck(deck: Deck, bracket: number, notFound: string[] = [
   return { deck: viewed, validation: validateDeck(viewed, notFound, [], { bracket: b }) };
 }
 
-/** Read a decklist: the bracket report, and the deck itself with Scryfall data. */
-export async function readDeck(text: string): Promise<{ report: BracketReport; deck: Deck; notFound: string[] }> {
+/** Read a decklist: the bracket report, and the deck itself with Scryfall data.
+ *  quick: only the cards (for the workshop, which counts everything itself): no combo lookup, no opening hands. */
+export async function readDeck(text: string, opts: { quick?: boolean } = {}): Promise<{ report: BracketReport; deck: Deck; notFound: string[] }> {
   const parsed = parseDecklist(text);
   const names = [...new Set([...parsed.commanders, ...parsed.commanderGuess, ...parsed.cards.map((c) => c.name)])].slice(0, 260);
   if (!names.length) throw new Error("Paste a decklist: one card per line, like \"1 Sol Ring\".");
@@ -134,7 +135,7 @@ export async function readDeck(text: string): Promise<{ report: BracketReport; d
   const gameChangers = named((c) => c.gameChanger);
   const massLandDenial = named((c) => MLD.some((r) => r.test(c.oracleText)));
   const extraTurns = named((c) => EXTRA_TURN.test(c.oracleText));
-  const combos = total >= 20 ? await checkCombos(deck) : { checked: false, combos: [], tooStrong: [] };
+  const combos = total >= 20 && !opts.quick ? await checkCombos(deck) : { checked: false, combos: [], tooStrong: [] };
   const twoCard = combos.combos.filter((c) => c.cards.length <= 2);
   const early = twoCard.filter((c) => c.bracketTag === "R");
   const other = twoCard.filter((c) => c.bracketTag !== "R");
@@ -161,8 +162,8 @@ export async function readDeck(text: string): Promise<{ report: BracketReport; d
     cards: deckCards.filter((c) => c.info).map((c) => ({ name: c.name, qty: c.qty })),
     notFound,
     problems,
-    analysis: cmdCards.length && total >= 60 ? analyzeDeck(deck) : null,
-    openers: cmdCards.length && total >= 90 ? simulateOpeners(deck, { games: 3000 }) : null,
+    analysis: cmdCards.length && total >= 60 && !opts.quick ? analyzeDeck(deck) : null,
+    openers: cmdCards.length && total >= 90 && !opts.quick ? simulateOpeners(deck, { games: 3000 }) : null,
   };
   return { report, deck, notFound };
 }
@@ -176,9 +177,10 @@ export async function handleBracketCheck(request: Request): Promise<Response> {
   if (!human.ok) return turnstileError(human);
   const text = typeof body?.list === "string" ? body.list.slice(0, 50_000) : "";
   try {
-    // withDeck: the deck too, for "Show my deck" (one bot check, one Scryfall lookup)
+    // withDeck: the deck too, for "Show my deck" (one bot check, one Scryfall lookup); quick: the
+    // workshop opening a pasted list, which only needs the cards
     if (body?.withDeck === true) {
-      const { report, deck, notFound } = await readDeck(text);
+      const { report, deck, notFound } = await readDeck(text, { quick: body?.quick === true });
       return Response.json(report.commanders.length ? { ...report, view: asViewedDeck(deck, report.bracket, notFound) } : report);
     }
     return Response.json(await checkBracket(text));

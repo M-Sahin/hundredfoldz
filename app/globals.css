@@ -4349,6 +4349,26 @@ main.ws {
   flex-wrap: wrap;
   gap: 10px;
 }
+/* "Start from a decklist" on the commander screen */
+.ws-import {
+  display: grid;
+  gap: 10px;
+  max-width: 560px;
+}
+.ws-import .panel-sub {
+  margin: 0;
+}
+.ws-import textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: ui-monospace, monospace;
+  font-size: 14px;
+}
+.ws-import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
 
 .ws-bar {
   display: flex;
