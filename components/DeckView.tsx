@@ -200,20 +200,30 @@ export function DeckView({
         </aside>
 
         <div className="deck-main zone">
-          <div className="tabs" role="tablist" aria-label="Deck views">
-            {(
-              [
-                ["cards", "Cards"],
-                ["list", "List"],
-                ["numbers", "Numbers"],
-                ["review", "Review"],
-                ["hand", "Draw a hand"],
-              ] as [Tab, string][]
-            ).map(([t, label]) => (
-              <button key={t} role="tab" type="button" aria-selected={tab === t} className={`tab ${tab === t ? "is-on" : ""}`} onClick={() => setTab(t)} data-testid={`tab-${t}`}>
-                {label}
-              </button>
-            ))}
+          <div className="tabs deck-tabs" role="tablist" aria-label="Deck views">
+            {/* the five tabs stay on one row; the layout switch and the count move to the next line when there's no room */}
+            <span className="tabs-list" role="none">
+              {(
+                [
+                  ["cards", "Cards"],
+                  ["list", "List"],
+                  ["numbers", "Numbers"],
+                  ["review", "Review"],
+                  ["hand", "Draw a hand", "Hand"],
+                ] as [Tab, string, string?][]
+              ).map(([t, label, short]) => (
+                <button key={t} role="tab" type="button" aria-selected={tab === t} className={`tab ${tab === t ? "is-on" : ""}`} onClick={() => setTab(t)} aria-label={short ? label : undefined} data-testid={`tab-${t}`}>
+                  {short ? (
+                    <>
+                      <span className="tab-long">{label}</span>
+                      <span className="tab-short">{short}</span>
+                    </>
+                  ) : (
+                    label
+                  )}
+                </button>
+              ))}
+            </span>
             {tab === "cards" ? (
               <span className="viewswitch" role="group" aria-label="Card layout">
                 {(
