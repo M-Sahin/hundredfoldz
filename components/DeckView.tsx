@@ -17,6 +17,7 @@ import { useSiteConfig } from "../lib/client/site-config";
 import { CardFace, IdentityPips, ManaCost } from "./CardFace";
 import { ShareButton } from "./ShareSheet";
 import { Menu } from "./Menu";
+import { storage } from "../lib/client/api";
 import { track } from "../lib/client/track";
 import { useCurrency } from "../lib/client/currency";
 import { PRICE_SOURCE, cardPrice, money } from "../lib/shared/currency";
@@ -26,6 +27,10 @@ import type { ComboFinding } from "../lib/shared/findings";
 
 type Tab = "cards" | "list" | "numbers" | "review" | "hand";
 type CardsView = "stacks" | "grid";
+type ListGroup = "type" | "role";
+
+/** Remembered across decks in this browser: List or Cards to open on, and how the list is grouped. */
+const deckViewPrefs = storage<{ tab?: "cards" | "list"; group?: ListGroup }>("hundredfold:deck-view");
 
 export function DeckView({
   deck,
@@ -72,6 +77,21 @@ export function DeckView({
   // every deck opens in the grid; stacks are a choice for this deck
   const [view, setView] = useState<CardsView>("grid");
   const pickView = (v: CardsView) => setView(v);
+  const [group, setGroup] = useState<ListGroup>("type");
+  // after the first render (the page is also rendered on the server, which can't know the choice)
+  useEffect(() => {
+    const p = deckViewPrefs.get();
+    if (p?.tab === "list" && firstTab === "cards") setTab("list");
+    if (p?.group === "role") setGroup("role");
+  }, [firstTab]);
+  const pickTab = (t: Tab) => {
+    setTab(t);
+    if (t === "cards" || t === "list") deckViewPrefs.set({ ...deckViewPrefs.get(), tab: t });
+  };
+  const pickGroup = (g: ListGroup) => {
+    setGroup(g);
+    deckViewPrefs.set({ ...deckViewPrefs.get(), group: g });
+  };
   const [open, setOpen] = useState<DeckCard | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const cmd = deck.commander;
@@ -212,7 +232,7 @@ export function DeckView({
                   ["hand", "Draw a hand", "Hand"],
                 ] as [Tab, string, string?][]
               ).map(([t, label, short]) => (
-                <button key={t} role="tab" type="button" aria-selected={tab === t} className={`tab ${tab === t ? "is-on" : ""}`} onClick={() => setTab(t)} aria-label={short ? label : undefined} data-testid={`tab-${t}`}>
+                <button key={t} role="tab" type="button" aria-selected={tab === t} className={`tab ${tab === t ? "is-on" : ""}`} onClick={() => pickTab(t)} aria-label={short ? label : undefined} data-testid={`tab-${t}`}>
                   {short ? (
                     <>
                       <span className="tab-long">{label}</span>
@@ -238,10 +258,24 @@ export function DeckView({
                 ))}
               </span>
             ) : null}
+            {tab === "list" ? (
+              <span className="viewswitch" role="group" aria-label="Group the list">
+                {(
+                  [
+                    ["type", "By type"],
+                    ["role", "By role"],
+                  ] as [ListGroup, string][]
+                ).map(([g, label]) => (
+                  <button key={g} type="button" className={`viewswitch-btn ${group === g ? "is-on" : ""}`} aria-pressed={group === g} onClick={() => pickGroup(g)} data-testid={`group-${g}`}>
+                    {label}
+                  </button>
+                ))}
+              </span>
+            ) : null}
             <span className="tabs-total">{totalCards(deck)} cards</span>
           </div>
           {tab === "cards" ? <CardsTab deck={deck} onOpen={setOpen} added={addedSet} view={view} /> : null}
-          {tab === "list" ? <ListTab deck={deck} onOpen={setOpen} /> : null}
+          {tab === "list" ? <ListTab deck={deck} onOpen={setOpen} group={group} added={addedSet} /> : null}
           {tab === "numbers" ? <NumbersTab deck={deck} openers={openers} /> : null}
           {tab === "review" ? <ReviewTab deck={deck} validation={validation} openers={openers} combos={combos} onAskReview={onAskReview} onOpen={(name) => setOpen(findCard(deck, name))} /> : null}
           {tab === "hand" ? <HandTab deck={deck} onOpen={setOpen} /> : null}
@@ -352,24 +386,34 @@ function Stacks({ deck, onOpen, added }: { deck: Deck; onOpen: (c: DeckCard) => 
   );
 }
 
-function ListTab({ deck, onOpen }: { deck: Deck; onOpen: (c: DeckCard) => void }) {
+const TYPE_TITLES: Record<string, string> = { Sorcery: "Sorceries", Other: "Other" };
+
+/** The List tab: the whole deck in a few dense columns (like deckbuilding sites), by card type or by role.
+ *  Hovering a name shows the card; a click or tap opens it. */
+function ListTab({ deck, onOpen, group, added }: { deck: Deck; onOpen: (c: DeckCard) => void; group: ListGroup; added?: Set<string> }) {
   const peek = useCardPeek();
+  const groups =
+    group === "role"
+      ? byRole(deck).map((g) => ({ key: g.role, title: ROLE_LABELS[g.role], color: ROLE_COLORS[g.role] as string | undefined, cards: g.cards, count: g.count }))
+      : byType(deck).map((g) => ({ key: g.type, title: TYPE_TITLES[g.type] ?? `${g.type}s`, color: undefined, cards: g.cards, count: g.count }));
   return (
-    <div className="list">
+    <div className="list" data-testid="deck-list">
       {peek.el}
-      {byType(deck).map((g) => (
-        <section key={g.type} className="list-group">
-          <h3>
-            {g.type === "Other" ? "Other" : g.type === "Sorcery" ? "Sorceries" : `${g.type}s`} <span className="role-count">{g.count}</span>
+      {groups.map((g) => (
+        <section key={g.key} className="list-group">
+          <h3 className={g.color ? "is-role" : undefined} style={g.color ? { ["--role" as string]: g.color } : undefined}>
+            {g.title} <span className="role-count">{g.count}</span>
           </h3>
           <ul>
             {g.cards.map((c) => (
               <li key={c.name}>
                 <button type="button" className="list-row" onClick={() => onOpen(c)} {...peek.bind(c.info)}>
                   <span className="list-qty">{c.qty}</span>
-                  <span className="list-name">{c.name}</span>
-                  <span className="list-role" style={{ color: ROLE_COLORS[c.role] }}>
-                    {ROLE_LABELS[c.role]}
+                  <span className="list-name">
+                    <span className="list-name-text">{c.name}</span>
+                    {c.seed ? <span className="list-tag" title="One of your seed cards">Seed</span> : null}
+                    {added?.has(c.name.toLowerCase()) ? <span className="list-tag list-tag--new" title="Swapped in by the upgrade">New</span> : null}
+                    {c.info?.gameChanger ? <span className="list-tag list-tag--gc" title="Game Changer">GC</span> : null}
                   </span>
                   <ManaCost cost={c.info?.manaCost ?? ""} />
                 </button>

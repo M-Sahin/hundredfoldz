@@ -11,7 +11,8 @@ Everything Hundredfoldz does, in detail. Back to the [README](../README.md).
 - **The deck:**
   - a commander banner, strategy and win conditions, and the Bracket 3 checklist
   - cards grouped by role, with images and a click-through detail view that explains why each card is in the deck
-  - a type list, a mana curve, counts against the Commander template, color demand and a price
+  - a compact list (the List tab): the whole deck in a few columns, by card type or by role, with mana costs and the Seed, New and Game Changer marks; hover a name to see the card. The page remembers whether you last used List or Cards, and the grouping
+  - a mana curve, counts against the Commander template, color demand and a price
   - opening hands: thousands of goldfished games show how often you keep your first 7, hit your third and fourth land on time, have each color by turn 3 and cast the commander on time (see [Opening-hand check](#opening-hand-check))
   - a sample-hand drawer
   - copy for Moxfield/Archidekt or Arena, and a .txt download

@@ -533,6 +533,17 @@ await run("33-result-menus", { width: 1440, height: 1000 }, async (p) => {
   const opened = await p.locator("dialog.modal[open]").count();
   if (!opened) errors.push("a mouse click on a stacked card didn't open it");
   await p.keyboard.press("Escape");
+  // the List tab: every card in a few dense columns, by type or by role
+  await p.click("[data-testid=tab-list]");
+  const byType = await p.locator("[data-testid=deck-list] .list-row").count();
+  const listCols = await p.evaluate(() => new Set([...document.querySelectorAll("[data-testid=deck-list] .list-row")].map((r) => Math.round(r.getBoundingClientRect().left))).size);
+  await p.click("[data-testid=group-role]");
+  const byRoleRows = await p.locator("[data-testid=deck-list] .list-row").count();
+  console.log(`list: ${byType} rows by type in ${listCols} columns, ${byRoleRows} by role`);
+  if (byType !== grid || byRoleRows !== grid) errors.push(`list rows: ${byType} by type, ${byRoleRows} by role, ${grid} cards in the grid`);
+  if (listCols < 2) errors.push(`the list is in ${listCols} column at 1440px`);
+  await p.screenshot({ path: `${out}/5b-list-by-role.png`, fullPage: true });
+  await p.click("[data-testid=tab-cards]");
   await p.click("[data-testid=more-menu]");
 });
 // on a phone the build screen follows the build: the newest log line stays on screen
@@ -753,6 +764,7 @@ await run("40-phone-sweep", { width: 360, height: 740 }, async (p) => {
   await step("buy links", async () => p.click("[data-testid=buy-toggle]"));
   await step("stacks", async () => p.click("[data-testid=view-stacks]"));
   await step("list tab", async () => p.click("role=tab[name=List]"));
+  await step("list by role", async () => p.click("[data-testid=group-role]"));
   await step("numbers tab", async () => p.click("role=tab[name=Numbers]"));
   await step("hand tab", async () => p.click('role=tab[name="Draw a hand"]'));
   await step("card view", async () => {
