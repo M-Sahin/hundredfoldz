@@ -592,7 +592,12 @@ export function CardModal({ card, onClose, actions }: { card: DeckCard; onClose:
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const d = ref.current;
-    if (d && !d.open) d.showModal?.();
+    if (d && !d.open) {
+      d.showModal?.();
+      // opening focuses the first control, far down on a phone, and scrolls there: start at the top instead
+      d.focus({ preventScroll: true });
+      d.scrollTop = 0;
+    }
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -601,7 +606,7 @@ export function CardModal({ card, onClose, actions }: { card: DeckCard; onClose:
   const cur = useCurrency();
   const own = cardPrice(i, cur);
   return (
-    <dialog ref={ref} className="modal" onClose={onClose} onClick={(e) => e.target === ref.current && onClose()} aria-label={card.name}>
+    <dialog ref={ref} className="modal" tabIndex={-1} onClose={onClose} onClick={(e) => e.target === ref.current && onClose()} aria-label={card.name}>
       <div className="modal-inner">
         <CardFace card={i} name={card.name} tilt className="modal-card" loading="eager" />
         <div className="modal-text">
