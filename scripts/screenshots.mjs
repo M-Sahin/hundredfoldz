@@ -64,6 +64,9 @@ await run("3-building", { width: 1440, height: 1000 }, async (p) => {
   const plain = await p.locator(".log-tool-plain").allInnerTexts();
   console.log(`build log in plain words: ${plain.join(" | ")}`);
   if (!plain.length) errors.push("the build log shows no plain-language searches");
+  const plan = await p.locator("[data-testid=forge-plan] .paper-note-text").innerText({ timeout: 2000 }).catch(() => "");
+  console.log(`build plan note: ${plan || "(none)"}`);
+  if (!plan) errors.push("the build screen shows no plan note before the searches");
 });
 await run("4-result", { width: 1440, height: 1000 }, toResult);
 await run("5-numbers", { width: 1440, height: 1000 }, async (p) => {
