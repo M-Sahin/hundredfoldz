@@ -85,6 +85,18 @@ export function installFakeScryfall() {
     if (url.includes("/cards/search")) {
       const q = new URL(url).searchParams.get("q") ?? "";
       if (q.includes("nothingmatches")) return json({ object: "error", details: "Your query didn't match any cards." }, 404);
+      // a long result, paged 175 at a time like Scryfall's: "Card 001" … "Card 400" ("overlap": page 2
+      // repeats the last card of page 1, as when the order shifts between two requests)
+      if (q.includes("manycards")) {
+        const page = Number(new URL(url).searchParams.get("page") ?? 1);
+        const names = Array.from({ length: 400 }, (_, i) => `Card ${String(i + 1).padStart(3, "0")}`);
+        // with the overlap, the pages after the first start one card earlier
+        const shift = q.includes("overlap") && page > 1 ? 1 : 0;
+        const data = names.slice((page - 1) * 175 - shift, page * 175 - shift);
+        if (shift && page === 3) data.push(names[399]); // the last page still ends with the last card
+        const has_more = page * 175 < names.length;
+        return json({ object: "list", total_cards: names.length, has_more, ...(has_more ? { next_page: `${url}&page=${page + 1}` } : {}), data: data.map((n) => fakeCard(n)) });
+      }
       return json({ object: "list", total_cards: 2, data: [fakeCard("Blood Artist"), fakeCard("Zulaport Cutthroat")] });
     }
     if (url.includes("/cards/named")) {

@@ -37,13 +37,13 @@ export class ScryfallError extends Error {
 // Small in-memory cache of *mapped* results (warm function instances reuse it).
 const cache = new Map<string, { at: number; value: unknown }>();
 const TTL = 1000 * 60 * 60 * 24; // Scryfall asks clients to cache for at least 24 hours
-async function cached<T>(key: string, fn: () => Promise<T>, keep: (v: T) => boolean = () => true): Promise<T> {
-  const hit = cache.get(key);
+async function cached<T>(key: string, fn: () => Promise<T>, keep: (v: T) => boolean = () => true, store = cache, max = 600): Promise<T> {
+  const hit = store.get(key);
   if (hit && Date.now() - hit.at < TTL) return hit.value as T;
   const value = await fn();
   if (keep(value)) {
-    cache.set(key, { at: Date.now(), value });
-    if (cache.size > 600) cache.delete(cache.keys().next().value as string);
+    store.set(key, { at: Date.now(), value });
+    if (store.size > max) store.delete(store.keys().next().value as string);
   }
   return value;
 }
@@ -180,6 +180,34 @@ export async function search(q: string, order = "edhrec", limit = 25): Promise<S
     return { total: res.total_cards ?? 0, cards: (res.data ?? []).slice(0, 40).map(toCardInfo) };
   });
   return { ...all, cards: all.cards.slice(0, limit) };
+}
+
+/** Scryfall pages its searches 175 cards at a time (scryfall.com/docs/api/cards/search). */
+export const SCRYFALL_PAGE = 175;
+
+export interface SearchPage extends SearchResult {
+  /** Scryfall's has_more: there's a page after this one */
+  hasMore: boolean;
+}
+
+// whole pages are big (175 cards each), so they get a smaller cache of their own
+const pageCache = new Map<string, { at: number; value: unknown }>();
+
+/** One whole page of a search (`page` counts from 1), as Scryfall pages it. */
+export async function searchPage(q: string, order = "edhrec", page = 1): Promise<SearchPage> {
+  const params = new URLSearchParams({ q: q.slice(0, 400), order, unique: "cards", page: String(Math.max(1, Math.floor(page))) });
+  return cached(
+    `page:${params}`,
+    async (): Promise<SearchPage> => {
+      const res = await request<any>(`/cards/search?${params}`);
+      // a 404 error object here just means "no matches"
+      if (res.object === "error") return { total: 0, cards: [], hasMore: false, error: res.details };
+      return { total: res.total_cards ?? 0, cards: (res.data ?? []).map(toCardInfo), hasMore: Boolean(res.has_more) };
+    },
+    () => true,
+    pageCache,
+    60,
+  );
 }
 
 export async function named(name: string, fuzzy = false): Promise<CardInfo | null> {

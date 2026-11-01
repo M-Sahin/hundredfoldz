@@ -652,18 +652,28 @@ function SearchPane({ ws, slot, setSlot, onAdd, onOpen }: { ws: WorkshopDeck; sl
   const [q, setQ] = useState("");
   const [type, setType] = useState("");
   const [mv, setMv] = useState("");
-  const [res, setRes] = useState<{ total: number; cards: CardInfo[]; error?: string } | null>(null);
+  const [res, setRes] = useState<{ total: number; cards: CardInfo[]; next: number | null; error?: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // "Show more": the request for the next 40 (cancelled when the search changes) and its error
+  const moreCtl = useRef<AbortController | null>(null);
+  const [more, setMore] = useState(false);
+  const [moreErr, setMoreErr] = useState<string | null>(null);
   const colors = workshopIdentity(ws);
   const key = colors.join("");
   const text = q.trim();
   const has = useMemo(() => new Map(ws.cards.map((c) => [c.name.toLowerCase(), c.qty])), [ws.cards]);
+  const query = { q: text.length >= 2 ? text : "", colors, slot, type, mv };
 
   useEffect(() => {
+    moreCtl.current?.abort();
+    moreCtl.current = null;
+    setMore(false);
+    setMoreErr(null);
     if (text.length < 2 && !slot && !type && !mv) {
       setRes(null);
       setErr(null);
+      setBusy(false); // a search still running when the filters were cleared doesn't count
       return;
     }
     const ctl = new AbortController();
@@ -671,7 +681,7 @@ function SearchPane({ ws, slot, setSlot, onAdd, onOpen }: { ws: WorkshopDeck; sl
       setBusy(true);
       setErr(null);
       try {
-        setRes(await searchCards({ q: text.length >= 2 ? text : "", colors, slot, type, mv }, ctl.signal));
+        setRes(await searchCards(query, ctl.signal));
       } catch (e) {
         if (!ctl.signal.aborted) setErr((e as Error).message);
       } finally {
@@ -684,6 +694,32 @@ function SearchPane({ ws, slot, setSlot, onAdd, onOpen }: { ws: WorkshopDeck; sl
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text, slot, type, mv, key]);
+
+  const showMore = async () => {
+    if (!res?.next || moreCtl.current) return;
+    const ctl = new AbortController();
+    moreCtl.current = ctl;
+    setMore(true);
+    setMoreErr(null);
+    try {
+      const r = await searchCards(query, ctl.signal, res.next);
+      if (ctl.signal.aborted) return;
+      if (r.error) setMoreErr(r.error);
+      // the next 40 go under the ones already shown; a card already on the list isn't shown twice
+      setRes((cur) => {
+        if (!cur) return cur;
+        const seen = new Set(cur.cards.map((c) => c.name.toLowerCase()));
+        return { ...cur, next: r.next, cards: [...cur.cards, ...r.cards.filter((c) => !seen.has(c.name.toLowerCase()))] };
+      });
+    } catch (e) {
+      if (!ctl.signal.aborted) setMoreErr((e as Error).message);
+    } finally {
+      if (moreCtl.current === ctl) {
+        moreCtl.current = null;
+        setMore(false);
+      }
+    }
+  };
 
   return (
     <section className="ws-pane ws-search panel" data-pane="search" aria-labelledby="ws-search-h">
@@ -764,7 +800,23 @@ function SearchPane({ ws, slot, setSlot, onAdd, onOpen }: { ws: WorkshopDeck; sl
           })}
         </ul>
       ) : null}
-      {res && res.total > res.cards.length ? <p className="note">The {res.cards.length} most played of {res.total.toLocaleString("en")}. Add words or filters to narrow it down.</p> : null}
+      {res?.cards.length && res.total > res.cards.length ? (
+        <div className="ws-more">
+          <p className="note" data-testid="ws-shown">
+            The {res.cards.length} most played of {res.total.toLocaleString("en")}.{res.next ? "" : " Add words or filters to narrow it down."}
+          </p>
+          {res.next ? (
+            <button type="button" className="btn btn--small" onClick={() => void showMore()} disabled={more} aria-busy={more} data-testid="ws-more">
+              {more ? "Loading…" : "Show more"}
+            </button>
+          ) : null}
+          {moreErr ? (
+            <p className="error" role="alert">
+              Couldn&apos;t load more: {moreErr}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }
