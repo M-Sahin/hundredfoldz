@@ -2,20 +2,44 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { autocomplete } from "../lib/client/api";
 
-/** Card-name combobox backed by Scryfall autocomplete. */
-export function CardSearch({ onPick, onClose, exclude, placeholder = "Type a card name" }: { onPick: (name: string) => void; onClose: () => void; exclude: string[]; placeholder?: string }) {
+/**
+ * Card-name combobox backed by Scryfall autocomplete. `suggest` swaps in another source of names
+ * (the workshop's commander and partner pickers); `minChars` 0 suggests before anything is typed.
+ */
+export function CardSearch({
+  onPick,
+  onClose,
+  exclude,
+  placeholder = "Type a card name",
+  suggest,
+  minChars = 2,
+  delay = 160,
+  empty = "No card by that name. Check the spelling.",
+}: {
+  onPick: (name: string) => void;
+  onClose: () => void;
+  exclude: string[];
+  placeholder?: string;
+  suggest?: (q: string, signal: AbortSignal) => Promise<string[]>;
+  minChars?: number;
+  delay?: number;
+  empty?: string;
+}) {
   const [q, setQ] = useState("");
   const [items, setItems] = useState<string[]>([]);
   const [active, setActive] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<string | null>(null); // the text the list was last filled for
   const input = useRef<HTMLInputElement>(null);
   const box = useRef<HTMLDivElement>(null);
+  const source = useRef(suggest);
+  source.current = suggest;
   const listId = useId();
 
   useEffect(() => input.current?.focus(), []);
 
   useEffect(() => {
-    if (q.trim().length < 2) {
+    if (q.trim().length < minChars) {
       setItems([]);
       return;
     }
@@ -23,21 +47,22 @@ export function CardSearch({ onPick, onClose, exclude, placeholder = "Type a car
     const t = setTimeout(async () => {
       setBusy(true);
       try {
-        const names = await autocomplete(q, ctl.signal);
+        const names = await (source.current ?? autocomplete)(q, ctl.signal);
         const ex = new Set(exclude.map((e) => e.toLowerCase()));
         setItems(names.filter((n) => !ex.has(n.toLowerCase())).slice(0, 8));
         setActive(0);
+        setDone(q);
       } catch {
         /* aborted or offline */
       } finally {
         setBusy(false);
       }
-    }, 160);
+    }, delay);
     return () => {
       clearTimeout(t);
       ctl.abort();
     };
-  }, [q, exclude]);
+  }, [q, exclude, minChars, delay]);
 
   useEffect(() => {
     const off = (e: MouseEvent) => {
@@ -92,7 +117,7 @@ export function CardSearch({ onPick, onClose, exclude, placeholder = "Type a car
             {n}
           </li>
         ))}
-        {!items.length && q.trim().length >= 2 && !busy ? <li className="search-empty">No card by that name. Check the spelling.</li> : null}
+        {!items.length && q.trim().length >= minChars && !busy && done === q ? <li className="search-empty">{empty}</li> : null}
       </ul>
     </div>
   );

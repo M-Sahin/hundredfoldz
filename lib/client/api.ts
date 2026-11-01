@@ -16,6 +16,20 @@ export async function autocomplete(q: string, signal?: AbortSignal): Promise<str
   return j.data ?? [];
 }
 
+/** Names of cards that can lead a Commander deck, for the workshop's commander picker. */
+export async function commanderNames(q: string, signal?: AbortSignal): Promise<string[]> {
+  const r = await fetch(`/api/cards/commanders?q=${encodeURIComponent(q)}`, { signal });
+  const j = await r.json();
+  return j.data ?? [];
+}
+
+/** Names of cards that can be the second commander next to `commander` (q may be empty). */
+export async function partnerNames(commander: string, q: string, signal?: AbortSignal): Promise<string[]> {
+  const r = await fetch(`/api/cards/commanders?with=${encodeURIComponent(commander)}&q=${encodeURIComponent(q)}`, { signal });
+  const j = await r.json();
+  return j.data ?? [];
+}
+
 export async function cardByName(name: string): Promise<CardInfo> {
   const r = await fetch(`/api/cards/named?name=${encodeURIComponent(name)}`);
   const j = await r.json();

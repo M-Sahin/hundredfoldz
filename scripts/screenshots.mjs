@@ -48,6 +48,18 @@ const workshopDeck = async (p) => {
   const total = await p.textContent("[data-testid=ws-total]");
   console.log(`workshop: ${total} cards after 3 picks and the basic lands`);
 };
+// the workshop's pickers: a commander from its name, then (when it can have one) the partner picker
+const CMD_PICKER = "[aria-label=\"Type a commander's name\"]";
+const pickCommander = async (p, name) => {
+  await p.fill(CMD_PICKER, name);
+  await p.waitForFunction((n) => [...document.querySelectorAll(".search-list [role=option]")].some((o) => o.textContent === n), name, { timeout: 15000 });
+  await p.keyboard.press("Enter");
+  await p.waitForSelector("[data-testid=ws-total]", { timeout: 15000 });
+};
+const openPartnerPicker = async (p) => {
+  await p.click("[data-testid=ws-add-partner]");
+  await p.waitForSelector(".ws-partner .search-list [role=option]", { timeout: 15000 });
+};
 const toResult = async (p) => {
   await loadSeeds(p);
   await p.click("[data-testid=build]");
@@ -796,6 +808,10 @@ await run("40-phone-sweep", { width: 360, height: 740 }, async (p) => {
     await p.click("[data-testid=deck-delete]");
   });
   await step("workshop commander", async () => p.goto(`${base}/workshop`, { waitUntil: "networkidle" }));
+  await step("workshop commander picker", async () => {
+    await p.fill(CMD_PICKER, "llanowar");
+    await p.waitForSelector(".search-list [role=option]", { timeout: 15000 });
+  });
   await step("workshop paste box", async () => p.click("[data-testid=ws-import-open]"));
   await step("workshop deck", async () => workshopDeck(p));
   await step("workshop search", async () => p.click("[data-testid=ws-tab-search]"));
@@ -809,6 +825,11 @@ await run("40-phone-sweep", { width: 360, height: 740 }, async (p) => {
     await p.locator(".ws-card-name").first().click();
   });
   await p.keyboard.press("Escape");
+  await step("workshop partner picker", async () => {
+    await p.click("[data-testid=ws-change-commander]");
+    await pickCommander(p, "Karlach, Fury of Avernus");
+    await openPartnerPicker(p);
+  });
   await step("bracket checker", async () => p.goto(`${base}/bracket`, { waitUntil: "load" }));
   await step("box EV", async () => p.goto(`${base}/ev`, { waitUntil: "networkidle" }));
   await step("a box", async () => p.goto(`${base}${evFirst || "/ev/dsk-play"}`, { waitUntil: "networkidle" }));
@@ -836,6 +857,26 @@ await run("47-workshop-paste", { width: 1440, height: 1000 }, async (p) => {
   console.log(`workshop paste: ${total} cards; ${left}`);
   if (total !== "25") errors.push(`a pasted list opened with ${total} cards in the workshop, not 25`);
   if (!/Not A Real Card/.test(left ?? "")) errors.push("the workshop doesn't say which pasted cards were left out");
+});
+// the commander picker offers only cards that can be commanders, and the partner picker only cards
+// that can pair with the commander (real Scryfall; each offered card is looked up again to check)
+await run("48-workshop-pickers", { width: 1440, height: 1000 }, async (p) => {
+  const card = async (n) => (await (await fetch(`${base}/api/cards/named?name=${encodeURIComponent(n)}`)).json()).card;
+  await p.goto(`${base}/workshop`, { waitUntil: "networkidle" });
+  await p.fill(CMD_PICKER, "llanowar");
+  await p.waitForSelector(".search-list [role=option]", { timeout: 15000 });
+  const offered = await p.locator(".search-list [role=option]").allTextContents();
+  console.log(`workshop commander picker, "llanowar": ${offered.join(", ")}`);
+  if (offered.includes("Llanowar Elves")) errors.push("the workshop's commander picker offers Llanowar Elves");
+  for (const n of offered) if (!(await card(n))?.canBeCommander) errors.push(`the workshop's commander picker offers ${n}, which can't be a commander`);
+  // Karlach chooses a Background: Backgrounds only
+  await pickCommander(p, "Karlach, Fury of Avernus");
+  await openPartnerPicker(p);
+  const partners = await p.locator(".ws-partner .search-list [role=option]").allTextContents();
+  console.log(`workshop partner picker for Karlach: ${partners.join(", ")}`);
+  for (const n of partners) if (!/\bBackground\b/.test((await card(n))?.typeLine ?? "")) errors.push(`the workshop's partner picker offers ${n} for Karlach, which isn't a Background`);
+  await p.locator(".ws-partner .search-list [role=option]").first().click();
+  await p.waitForFunction(() => / and /.test(document.querySelector(".ws-cmd-line")?.textContent ?? ""), null, { timeout: 15000 }).catch(() => errors.push("picking a Background in the workshop's partner picker didn't add it"));
 });
 await run("46-workshop-phone", { width: 390, height: 844 }, async (p) => {
   await workshopDeck(p);
