@@ -5988,12 +5988,17 @@ main:has(> .deck) {
   transition: background 900ms ease;
 }
 /* the commander's art, blurred, lying on the table behind the page */
-.table-art {
+.table-art-frame {
   position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.table-art {
+  position: absolute;
   inset: -6vh -6vw auto;
   height: 82vh;
-  z-index: -1;
-  pointer-events: none;
   background: var(--table-art) center 28% / cover no-repeat;
   filter: blur(46px) saturate(1.25);
   opacity: 0.42;
