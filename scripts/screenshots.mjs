@@ -48,6 +48,37 @@ const workshopDeck = async (p) => {
   const total = await p.textContent("[data-testid=ws-total]");
   console.log(`workshop: ${total} cards after 3 picks and the basic lands`);
 };
+// a stand-in for /api/coach (CI has no Claude): free deals on, and a scripted deck plan whose
+// searches are real Scryfall searches (tapping a theme runs one)
+const fakeCoach = async (route) => {
+  const req = route.request();
+  if (req.method() === "GET") return route.fulfill({ json: { enabled: true, limit: 5, used: 0, remaining: 5, model: "claude-haiku-5-5" } });
+  const body = req.postDataJSON() ?? {};
+  const themes = [
+    { name: "Sacrifice for value", why: "Meren brings back what you sacrifice, so every outlet becomes a loop.", query: "otag:sacrifice-outlet", total: 180 },
+    { name: "Death triggers", why: "Each creature that dies feeds Meren and drains the table.", query: 'o:"whenever another creature you control dies"', total: 120 },
+    { name: "Self-mill to fill the yard", why: "More creatures in the graveyard, better returns at the end step.", query: "otag:self-mill t:creature", total: 90 },
+  ];
+  const usage = { type: "usage", usage: { calls: 2, input: 3000, output: 400, cacheRead: 9000, cacheWrite: 0 }, model: "claude-haiku-5-5" };
+  const lines =
+    body.mode === "plan"
+      ? [{ type: "status", text: "Checking the searches on Scryfall" }, ...themes.map((theme) => ({ type: "theme", theme })), usage, { type: "done", ms: 5000, picks: themes.length }]
+      : [{ type: "status", text: "Claude couldn't find cards that fit" }, usage, { type: "done", ms: 3000, picks: 0 }];
+  await route.fulfill({ status: 200, contentType: "application/x-ndjson; charset=utf-8", body: lines.map((l) => JSON.stringify(l)).join("\n") + "\n" });
+};
+// the deck plan: sketch one, then tap its first theme (the search runs on real Scryfall)
+const workshopPlan = async (p) => {
+  if (await p.locator("[data-testid=ws-tab-search]").isVisible()) await p.click("[data-testid=ws-tab-search]");
+  await p.click("[data-testid=ws-plan-go]");
+  await p.waitForSelector("[data-testid=ws-plan]", { timeout: 15000 });
+  await p.click("[data-testid=ws-plan-theme] >> nth=0");
+  await p.waitForSelector("[data-testid=ws-results] li", { timeout: 20000 });
+  const q = await p.inputValue("[data-testid=ws-q]");
+  const deals = await p.locator("[data-testid=ws-deal-theme]").count();
+  console.log(`workshop plan: theme search "${q}", ${deals} themes to deal for`);
+  if (q !== "otag:sacrifice-outlet") errors.push(`tapping a plan theme searched for "${q}"`);
+  if (deals !== 3) errors.push(`Deal me 3 offers ${deals} plan themes, not 3`);
+};
 const toResult = async (p) => {
   await loadSeeds(p);
   await p.click("[data-testid=build]");
@@ -795,10 +826,12 @@ await run("40-phone-sweep", { width: 360, height: 740 }, async (p) => {
     await p.click("[data-testid=deck-more]");
     await p.click("[data-testid=deck-delete]");
   });
+  await p.route("**/api/coach", fakeCoach);
   await step("workshop commander", async () => p.goto(`${base}/workshop`, { waitUntil: "networkidle" }));
   await step("workshop paste box", async () => p.click("[data-testid=ws-import-open]"));
   await step("workshop deck", async () => workshopDeck(p));
   await step("workshop search", async () => p.click("[data-testid=ws-tab-search]"));
+  await step("workshop plan", async () => workshopPlan(p));
   await step("workshop checks", async () => p.click("[data-testid=ws-tab-checks]"));
   await step("workshop numbers", async () => {
     await p.click("[data-testid=ws-tab-deck]");
@@ -823,6 +856,11 @@ await run("7-mobile-setup", { width: 390, height: 844 }, async (p) => {
 });
 await run("8-mobile-result", { width: 390, height: 844 }, toResult);
 await run("45-workshop", { width: 1440, height: 1000 }, workshopDeck);
+await run("48-workshop-plan", { width: 1440, height: 1000 }, async (p) => {
+  await p.route("**/api/coach", fakeCoach);
+  await workshopDeck(p);
+  await workshopPlan(p);
+});
 // a pasted decklist opens in the workshop (real Scryfall); a made-up card is named as left out
 await run("47-workshop-paste", { width: 1440, height: 1000 }, async (p) => {
   await p.goto(`${base}/workshop`, { waitUntil: "networkidle" });
