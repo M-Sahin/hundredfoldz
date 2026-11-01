@@ -1621,6 +1621,11 @@ button.card {
   min-width: 36px;
 }
 
+.handtab-intro {
+  margin: 0 0 14px;
+  color: var(--ink-2);
+  max-width: 62ch;
+}
 .handtab-bar {
   display: flex;
   flex-wrap: wrap;
