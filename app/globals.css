@@ -1729,10 +1729,6 @@ button.card {
   width: 100%;
   box-shadow: 0 40px 90px rgba(0, 0, 0, 0.6);
 }
-/* the card view focuses itself on opening (so it starts at its top); no ring around the whole box */
-.modal:focus {
-  outline: none;
-}
 .modal::backdrop {
   background: rgba(5, 7, 20, 0.72);
   backdrop-filter: blur(3px);
@@ -5471,6 +5467,39 @@ main.ws {
 .tabs {
   overflow-y: hidden;
 }
+/* deck page: the tabs on one row at every width; never a row that scrolls sideways */
+.deck-tabs {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+.tabs-list {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tab-short {
+  display: none;
+}
+@media (max-width: 480px) {
+  .deck-tabs .tabs-list {
+    flex: 1 1 100%;
+    gap: 0;
+  }
+  .deck-tabs .tab {
+    flex: 1 1 auto;
+    padding: 10px 6px;
+    font-size: 15px;
+  }
+  .deck-tabs .tab-long {
+    display: none;
+  }
+  .deck-tabs .tab-short {
+    display: inline;
+  }
+}
 
 /* ================= Playmat: the deck workshop ================= */
 .ws.playmat {
@@ -5688,14 +5717,14 @@ main.page-mat {
   background: var(--felt-noise), var(--felt);
   box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.45), 0 40px 90px rgba(0, 0, 0, 0.6);
 }
-.modal::after,
-.sheet::after {
-  content: "";
-  position: absolute;
-  inset: 10px;
-  border: 2px dashed var(--stitch);
-  border-radius: 16px;
-  pointer-events: none;
+/* the stitched edge is an outline, so it stays on the box's edge while the content scrolls (a pseudo-element
+   scrolled away with it); also when the card view focuses itself on opening, instead of a focus ring */
+.modal,
+.sheet,
+.modal:focus-visible,
+.sheet:focus-visible {
+  outline: 2px dashed var(--stitch);
+  outline-offset: -12px;
 }
 .modal::backdrop,
 .sheet::backdrop {
