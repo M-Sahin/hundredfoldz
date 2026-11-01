@@ -48,6 +48,36 @@ const workshopDeck = async (p) => {
   const total = await p.textContent("[data-testid=ws-total]");
   console.log(`workshop: ${total} cards after 3 picks and the basic lands`);
 };
+// "Deal me 3" without Claude: GET /api/coach says the site gives free deals (so the workshop shows
+// the deal buttons), and the deal itself (POST) is a scripted NDJSON stream in the format
+// coach-handler.ts sends (CoachEvent lines), with real cards looked up through the app (Scryfall).
+// Cards already in the deck or passed on are skipped, like the real thing.
+const STAND_IN_PICKS = ["Beast Within", "Assassin's Trophy", "Putrefy", "Pernicious Deed", "Golgari Charm", "Maelstrom Pulse"];
+const pickInfo = new Map();
+const standInDeals = async (p, onDeal = () => {}) => {
+  await p.route("**/api/coach", async (route) => {
+    if (route.request().method() !== "POST") return route.fulfill({ json: { enabled: true, limit: 3, remaining: 3 } });
+    const req = route.request().postDataJSON();
+    onDeal(req);
+    const skip = new Set([...req.cards.map((c) => c.name), ...req.passed].map((n) => n.toLowerCase()));
+    const names = STAND_IN_PICKS.filter((n) => !skip.has(n.toLowerCase())).slice(0, 3);
+    const lines = [{ type: "status", text: "Claude is looking for cards" }];
+    for (const name of names) {
+      if (!pickInfo.has(name)) pickInfo.set(name, (await (await fetch(`${base}/api/cards/named?name=${encodeURIComponent(name)}`)).json()).card);
+      lines.push({ type: "pick", card: pickInfo.get(name), why: "A stand-in pick for the browser check: no Claude call was made." });
+    }
+    lines.push({ type: "done", ms: 900, picks: names.length });
+    await route.fulfill({ status: 200, headers: { "content-type": "application/x-ndjson; charset=utf-8", "cache-control": "no-store" }, body: lines.map((l) => JSON.stringify(l)).join("\n") + "\n" });
+  });
+};
+// open "Deal me 3" (the first slot offered) and wait for the three cards
+const dealThree = async (p) => {
+  if (await p.locator("[data-testid=ws-tab-checks]").isVisible()) await p.click("[data-testid=ws-tab-checks]");
+  await p.locator(".ws-deal-slots button").first().click({ timeout: 15000 });
+  await p.waitForSelector("[data-testid=card-picks][open]", { timeout: 10000 });
+  // a free deal waits for the bot check's token first (the test keys pass), then the stream
+  await p.waitForFunction(() => document.querySelectorAll("[data-testid=card-picks] [data-testid=pick]").length === 3, null, { timeout: 45000 });
+};
 const toResult = async (p) => {
   await loadSeeds(p);
   await p.click("[data-testid=build]");
@@ -795,6 +825,7 @@ await run("40-phone-sweep", { width: 360, height: 740 }, async (p) => {
     await p.click("[data-testid=deck-more]");
     await p.click("[data-testid=deck-delete]");
   });
+  await standInDeals(p);
   await step("workshop commander", async () => p.goto(`${base}/workshop`, { waitUntil: "networkidle" }));
   await step("workshop paste box", async () => p.click("[data-testid=ws-import-open]"));
   await step("workshop deck", async () => workshopDeck(p));
@@ -812,6 +843,26 @@ await run("40-phone-sweep", { width: 360, height: 740 }, async (p) => {
   await step("workshop card view", async () => {
     await p.click("[data-testid=ws-deck-list]");
     await p.locator(".ws-card-name").first().click();
+  });
+  await p.keyboard.press("Escape");
+  await step("workshop card picks", async () => {
+    await dealThree(p);
+    // the page check skips what's inside a dialog (it scrolls), so check the dialog's own edges too
+    await p.waitForTimeout(800);
+    const d = await p.evaluate(() => {
+      const dlg = document.querySelector("[data-testid=card-picks]");
+      const box = dlg.getBoundingClientRect();
+      const out = [...dlg.querySelectorAll("*")]
+        .filter((e) => {
+          const r = e.getBoundingClientRect();
+          return r.width && r.height && (r.right > box.right + 1 || r.left < box.left - 1);
+        })
+        .map((e) => `${e.tagName.toLowerCase()}.${String(e.className).split(" ")[0]}`);
+      return { left: Math.round(box.left), right: Math.round(box.right), sideways: dlg.scrollWidth - dlg.clientWidth, out: [...new Set(out)].slice(0, 6) };
+    });
+    console.log(`card picks at 360px: dialog ${d.left}–${d.right}px, scrolls sideways ${d.sideways}px${d.out.length ? `, sticking out: ${d.out.join(", ")}` : ""}`);
+    if (d.left < 0 || d.right > 360 || d.sideways > 1 || d.out.length) errors.push(`phone sweep, workshop card picks: the dialog doesn't fit (${JSON.stringify(d)})`);
+    await p.screenshot({ path: `${out}/40b-phone-card-picks.png` });
   });
   await p.keyboard.press("Escape");
   await step("bracket checker", async () => p.goto(`${base}/bracket`, { waitUntil: "load" }));
@@ -854,6 +905,26 @@ await run("47-workshop-paste", { width: 1440, height: 1000 }, async (p) => {
   console.log(`workshop paste: ${total} cards; ${left}`);
   if (total !== "25") errors.push(`a pasted list opened with ${total} cards in the workshop, not 25`);
   if (!/Not A Real Card/.test(left ?? "")) errors.push("the workshop doesn't say which pasted cards were left out");
+});
+// "Deal me 3" on a free deal (Claude stood in, real cards): three cards show, and keeping one adds it
+await run("48-workshop-card-picks", { width: 1440, height: 1000 }, async (p) => {
+  const deals = [];
+  await standInDeals(p, (req) => deals.push(req));
+  await workshopDeck(p);
+  const before = Number(await p.textContent("[data-testid=ws-total]"));
+  await dealThree(p);
+  const names = await p.locator("[data-testid=card-picks] [data-testid=pick] h3").allInnerTexts();
+  const first = names[0];
+  await p.locator("[data-testid=card-picks] [data-testid=pick-keep]").first().click();
+  await p.waitForFunction((n) => Number(document.querySelector("[data-testid=ws-total]")?.textContent) === n, before + 1, { timeout: 5000 }).catch(() => {});
+  const after = Number(await p.textContent("[data-testid=ws-total]"));
+  const kept = await p.locator("[data-testid=card-picks] [data-testid=pick-keep]").first().innerText();
+  const inDeck = await p.locator(".ws-card-name", { hasText: first }).count();
+  const req = deals[0] ?? {};
+  console.log(`card picks: ${names.join(" | ")}; asked for ${req.slot} with ${req.cards?.length} cards (free deal: ${"turnstile" in req}); kept ${first}: ${before} → ${after} cards, button "${kept}"`);
+  if (names.length !== 3) errors.push(`card picks showed ${names.length} cards, not 3`);
+  if (after !== before + 1 || !inDeck) errors.push(`keeping ${first} didn't add it to the deck (${before} → ${after}, in the list: ${inDeck})`);
+  if (!/In your deck/.test(kept)) errors.push(`the kept pick's button says "${kept}"`);
 });
 await run("46-workshop-phone", { width: 390, height: 844 }, async (p) => {
   await workshopDeck(p);

@@ -35,6 +35,8 @@ import {
   fillBasics,
   fromDeck,
   partnerProblem,
+  popUndo,
+  pushUndo,
   removeOne,
   sameCards,
   setCommander,
@@ -45,6 +47,7 @@ import {
   workshopIdentity,
   workshopTotal,
   type Check,
+  type UndoStep,
   type WorkshopDeck,
 } from "../lib/shared/workshop";
 import { cardByName, freeDeals, handoff, randomCard, resolveDeck, searchCards, type FreeDeals } from "../lib/client/api";
@@ -93,8 +96,12 @@ const MVS: [string, string][] = [
 interface Toast {
   text: string;
   tone: "good" | "bad";
-  undo?: WorkshopDeck;
+  /** Offer Undo for the change the toast is about (the newest undo step). */
+  undo?: boolean;
 }
+
+/** Ctrl/Cmd+Z goes to the page, not to a text field's own undo. */
+const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || !!t.closest("input, textarea, select"));
 
 export default function Workshop() {
   const [ws, setWs] = useState<WorkshopDeck>(EMPTY_WORKSHOP);
@@ -107,6 +114,8 @@ export default function Workshop() {
   const [leftOut, setLeftOut] = useState<string[]>([]); // a pasted list's cards Scryfall didn't know
   const [open, setOpen] = useState<DeckCard | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
+  // the last changes, newest last, for Undo; kept for this visit only (the deck itself survives a reload)
+  const [undo, setUndo] = useState<UndoStep[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<"account" | "browser" | "saving" | null>(null);
   // card picks: the visitor's own key (the key sheet loads a remembered one), the slot being dealt,
@@ -140,7 +149,10 @@ export default function Workshop() {
         const next = fromDeck(h.name ? { ...r.deck, name: h.name } : r.deck);
         setWs(next);
         // the deck from last time is replaced: say so, and offer it back
-        if (before.commander && before.cards.length && !sameCards(before, next)) say({ text: `Opened ${h.name ?? "your deck"}. Your earlier workshop deck was put aside.`, tone: "good", undo: before });
+        if (before.commander && before.cards.length && !sameCards(before, next)) {
+          setUndo((u) => pushUndo(u, before, `Opened ${h.name ?? "your deck"}`));
+          say({ text: `Opened ${h.name ?? "your deck"}. Your earlier workshop deck was put aside.`, tone: "good", undo: true });
+        }
       })
       .catch((e) => {
         setWs(before);
@@ -169,12 +181,34 @@ export default function Workshop() {
     setToast(t);
     toastTimer.current = setTimeout(() => setToast(null), t.undo ? 6000 : 3500);
   };
-  const change = (next: WorkshopDeck, text?: string) => {
-    const prev = ws;
+  /** A change to the deck: `label` names it for Undo ("Added Sol Ring"), `text` is the toast, if any. */
+  const change = (next: WorkshopDeck, label: string, text?: string, kind?: string) => {
+    setUndo((u) => pushUndo(u, ws, label, kind));
     setWs(next);
     setSaved(null);
-    if (text) say({ text, tone: "good", undo: prev });
+    if (text) say({ text, tone: "good", undo: true });
+    else if (toast?.undo) setToast(null); // its Undo would now take back this change instead
   };
+  const undoLast = () => {
+    const u = popUndo(undo);
+    if (!u) return;
+    setUndo(u.rest);
+    setWs(u.step.deck);
+    setSaved(null);
+    setPicking(null);
+    say({ text: `Undone: ${u.step.label}.`, tone: "good" });
+  };
+  // Ctrl/Cmd+Z, unless the cursor is in a text field (it has its own undo) or a card or dialog is open
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== "z" || !(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+      if (typing(e.target) || open || dealing || keySheet || !undo.length) return;
+      e.preventDefault();
+      undoLast();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   const add = (c: CardInfo) => {
     const why = canAdd(ws, c);
@@ -182,9 +216,9 @@ export default function Workshop() {
     const next = addCard(ws, c);
     const role = next.cards.find((x) => x.name === c.name)?.role;
     const check = checks.find((k) => CHECK_SLOT[k.key] === role);
-    change(next, check ? `Added ${c.name}. ${check.label}: ${check.have + 1} of ${check.want[0]}–${check.want[1]}.` : `Added ${c.name}.`);
+    change(next, `Added ${c.name}`, check ? `Added ${c.name}. ${check.label}: ${check.have + 1} of ${check.want[0]}–${check.want[1]}.` : `Added ${c.name}.`);
   };
-  const remove = (name: string) => change(removeOne(ws, name), `Removed ${name}.`);
+  const remove = (name: string) => change(removeOne(ws, name), `Removed ${name}`, `Removed ${name}.`);
 
   const pickCommander = async (name: string) => {
     setError(null);
@@ -193,7 +227,7 @@ export default function Workshop() {
       const why = commanderProblem(c);
       if (why) return setError(why);
       if (!ws.commander) track("workshop|opened");
-      change(setCommander(ws, c));
+      change(setCommander(ws, c), `Changed the commander to ${c.name}`);
       setPicking(null);
     } catch (e) {
       setError((e as Error).message);
@@ -205,7 +239,7 @@ export default function Workshop() {
       const c = await cardByName(name);
       const why = partnerProblem(ws, c);
       if (why) return setError(why);
-      change(setPartner(ws, c));
+      change(setPartner(ws, c), `Added ${c.name} as partner`);
       setPicking(null);
     } catch (e) {
       setError((e as Error).message);
@@ -222,7 +256,7 @@ export default function Workshop() {
     setPane("deck");
     setLeftOut(notFound);
     setError(null);
-    if (ws.commander || ws.cards.length) change(next, `Opened your list: ${n} cards. Your earlier workshop deck was put aside.`);
+    if (ws.commander || ws.cards.length) change(next, "Opened your list", `Opened your list: ${n} cards. Your earlier workshop deck was put aside.`);
     else {
       setWs(next);
       setSaved(null);
@@ -247,7 +281,7 @@ export default function Workshop() {
     } catch {
       /* the checks still count them as lands by name */
     }
-    change(next, `Added ${r.added} basic land${r.added === 1 ? "" : "s"}, split by what your spells need.`);
+    change(next, `Added ${r.added} basic land${r.added === 1 ? "" : "s"}`, `Added ${r.added} basic land${r.added === 1 ? "" : "s"}, split by what your spells need.`);
   };
 
   const save = async () => {
@@ -277,26 +311,38 @@ export default function Workshop() {
 
   const startOver = () => {
     setLeftOut([]);
-    change(EMPTY_WORKSHOP, "Started over.");
+    change(EMPTY_WORKSHOP, "Started over", "Started over.");
   };
 
   const toastEl = toast ? (
     <div className={`ws-toast is-${toast.tone}`} role="status">
       <span>{toast.text}</span>
-      {toast.undo ? (
-        <button
-          type="button"
-          className="link"
-          onClick={() => {
-            setWs(toast.undo!);
-            setToast(null);
-          }}
-        >
+      {toast.undo && undo.length ? (
+        <button type="button" className="link" onClick={undoLast}>
           Undo
         </button>
       ) : null}
     </div>
   ) : null;
+
+  const lastStep = undo[undo.length - 1];
+  const undoButton = (
+    <button
+      type="button"
+      className="btn"
+      onClick={undoLast}
+      disabled={!lastStep}
+      title={lastStep ? `Undo: ${lastStep.label}` : "Nothing to undo yet"}
+      aria-label={lastStep ? `Undo: ${lastStep.label}` : "Undo"}
+      data-testid="ws-undo"
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M9 14L4 9l5-5" />
+        <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+      </svg>
+      Undo
+    </button>
+  );
 
   if (loading || !loaded) {
     return (
@@ -336,6 +382,8 @@ export default function Workshop() {
                   Keep {ws.commander.name}
                 </button>
               ) : null}
+              {/* after Start over, the way back to the deck */}
+              {!ws.commander && undo.length ? undoButton : null}
             </div>
             {importing ? <DecklistImport onOpen={openList} onCancel={() => setImporting(false)} /> : null}
             {error ? (
@@ -370,7 +418,7 @@ export default function Workshop() {
             <div className="ws-cmd-text">
               <label className="ws-name">
                 <span className="visually-hidden">Deck name</span>
-                <input value={ws.name} placeholder={deck.name} maxLength={120} onChange={(e) => change({ ...ws, name: e.target.value })} data-testid="ws-name" />
+                <input value={ws.name} placeholder={deck.name} maxLength={120} onChange={(e) => change({ ...ws, name: e.target.value }, "Renamed the deck", undefined, "name")} data-testid="ws-name" />
               </label>
               <p className="ws-cmd-line">
                 <IdentityPips colors={identity} /> {ws.commander.name}
@@ -381,7 +429,7 @@ export default function Workshop() {
                   Change commander
                 </button>
                 {ws.partner ? (
-                  <button type="button" className="link" onClick={() => change(setPartner(ws, null))}>
+                  <button type="button" className="link" onClick={() => change(setPartner(ws, null), `Removed ${ws.partner!.name}`)}>
                     Remove partner
                   </button>
                 ) : canPair(ws.commander) ? (
@@ -409,7 +457,7 @@ export default function Workshop() {
             <p className="ws-chips">
               <label className="ws-bracket">
                 <span className="visually-hidden">Bracket</span>
-                <select value={ws.bracket} onChange={(e) => change({ ...ws, bracket: Number(e.target.value) })} data-testid="ws-bracket">
+                <select value={ws.bracket} onChange={(e) => change({ ...ws, bracket: Number(e.target.value) }, `Changed the bracket to ${e.target.value}`)} data-testid="ws-bracket">
                   {[1, 2, 3, 4].map((b) => (
                     <option key={b} value={b}>
                       Bracket {b}
@@ -425,6 +473,7 @@ export default function Workshop() {
           </div>
 
           <div className="ws-actions">
+            {undoButton}
             <button type="button" className="btn" onClick={() => void handOver()} disabled={!!step.problem} title={step.problem ?? undefined} data-testid="ws-claude">
               {step.kind === "complete" ? "Finish it for me" : "Review my deck"}
             </button>
@@ -606,7 +655,7 @@ export default function Workshop() {
         <CardModal
           card={open}
           onClose={() => setOpen(null)}
-          actions={<CardActions ws={ws} card={open} onAdd={(c) => (add(c), setOpen(null))} onRemove={(n) => (remove(n), setOpen(null))} onRole={(r) => (change(setRole(ws, open.name, r)), setOpen({ ...open, role: r }))} />}
+          actions={<CardActions ws={ws} card={open} onAdd={(c) => (add(c), setOpen(null))} onRemove={(n) => (remove(n), setOpen(null))} onRole={(r) => (change(setRole(ws, open.name, r), `Changed what ${open.name} counts as`), setOpen({ ...open, role: r }))} />}
         />
       ) : null}
     </div>
