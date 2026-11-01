@@ -3,5 +3,11 @@
 export function TableArt({ src }: { src: string | null | undefined }) {
   if (!src) return null;
   // keyed by the image, so a new commander fades in instead of swapping in place
-  return <div key={src} className="table-art" aria-hidden style={{ ["--table-art" as string]: `url("${src}")` }} />;
+  // the art bleeds past the window so its blurred edges don't show; the frame clips it to the window,
+  // so it never reaches past the screen's edge (CI's phone sweep checks that)
+  return (
+    <div className="table-art-frame" aria-hidden>
+      <div key={src} className="table-art" style={{ ["--table-art" as string]: `url("${src}")` }} />
+    </div>
+  );
 }
