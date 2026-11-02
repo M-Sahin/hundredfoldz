@@ -306,7 +306,7 @@ export async function handleDecks(request: Request, deps: Deps = {}): Promise<Re
       [LIMITS.deckSaveIp, clientIp(request)],
     ]);
     if (!lim.ok) return tooMany("Too many saves this hour.", lim, cookieHeaders(auth.setCookies));
-    const rows = [];
+    const rows: Awaited<ReturnType<typeof deckRow>>[] = [];
     let skipped = 0;
     for (const x of items) {
       try {
@@ -318,7 +318,7 @@ export async function handleDecks(request: Request, deps: Deps = {}): Promise<Re
     if (!rows.length) return json({ error: "That deck couldn't be read." }, 400, auth.setCookies);
     // the same deck twice is one row (unique user_id + payload hash): ignore duplicates
     const saved = await withColumns((list, full) =>
-      rest<any[]>(cfg, auth.token, `decks?on_conflict=user_id,d_hash&select=${list}`, { method: "POST", headers: { prefer: "resolution=ignore-duplicates,return=representation" }, body: JSON.stringify(full ? rows : rows.map(({ based_on, ...r }: any) => r)) }, deps.fetch),
+      rest<any[]>(cfg, auth.token, `decks?on_conflict=user_id,d_hash&select=${list}`, { method: "POST", headers: { prefer: "resolution=ignore-duplicates,return=representation" }, body: JSON.stringify(full ? rows : rows.map(({ based_on: _, ...r }) => r)) }, deps.fetch),
     );
     // the Save button sends one deck; moving a browser's decks over sends many (not counted as saves)
     if (rows.length === 1 && saved.length === 1) await count("deck_saved|account");
