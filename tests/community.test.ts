@@ -168,6 +168,21 @@ test("decks: hidden and a description can be changed; the list says which are hi
   assert.equal(nothing.status, 400, "likes can't be set from the browser");
 });
 
+test("before the profiles migration, My decks still lists and saves (without the new columns)", async () => {
+  resetLimits();
+  const { f, calls } = fakeSupabase((c) => {
+    if (/hidden|description|likes/.test(c.url)) return { status: 400, body: { code: "42703", message: "column decks.hidden does not exist" } };
+    if (c.method === "GET") return { body: [{ id: DECK, name: "Meren", commander: "Meren of Clan Nel Toth", colors: "BG", created_at: "2026-10-28T00:00:00Z" }] };
+    return undefined;
+  });
+  const r = await handleDecks(req("/api/decks"), { config: cfg, fetch: f });
+  assert.equal(r.status, 200);
+  assert.equal((await r.json()).decks[0].name, "Meren");
+  const n = calls.length;
+  await handleDecks(req("/api/decks"), { config: cfg, fetch: f });
+  assert.equal(calls.length, n + 1, "remembered: one request, not two");
+});
+
 test("likes: on and off with the player's token; the database refusing says why", async () => {
   resetLimits();
   const { f, calls } = fakeSupabase((c) => {

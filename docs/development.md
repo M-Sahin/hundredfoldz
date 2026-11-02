@@ -21,6 +21,8 @@ npm run dev                  # http://localhost:3000
 | `node scripts/calibrate-analysis.mjs` | Compares the role detector with Scryfall Tagger on the most-played cards per role (needs Scryfall access) |
 | `node scripts/eval.mjs check` / `run` | The engine eval (see [Running an eval](#running-an-eval)) |
 | `node scripts/build-ev.mjs --out ev-out [--only dsk-play]` | Builds the Box EV data (needs GitHub and Scryfall) |
+| `node scripts/check-migrations.mjs` | Applies every migration twice to a throwaway Postgres in Docker, then runs `supabase/tests/` (who may read and change what). Needs Docker |
+| `node scripts/check-supabase.mjs` | Accounts, saved keys, profiles, likes, reports and moderation against a local Supabase with real users (after `supabase start`; CI: `accounts.yml`) |
 | `node scripts/check-openers.mjs [list.txt …]` | Opening-hand numbers for real decklists, before and after the basic-land rebalance (needs Scryfall) |
 
 CI (`.github/workflows/ci.yml`) runs all of these on every push except the eval run, and also builds and tests the Docker image. The browser pass checks the share flow, link previews, a cut-off build stream, switching apps, the key form, the security policy, the bracket checker, the Opening hands panel, completing and upgrading a deck, and the phone header. A step also prints the opening-hand numbers for the sample decks. CI publishes the screenshots, logs and the lockfile it resolved to the `ci-output` branch. The eval has its own manual workflow (`.github/workflows/eval.yml`).

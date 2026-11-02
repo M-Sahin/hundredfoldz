@@ -24,7 +24,10 @@ export default function Page() {
           <li>Login uses cookies that are needed to keep you logged in. There are no tracking or advertising cookies.</li>
           <li>If you choose to save your Claude API key to your account, it&apos;s stored encrypted (AES-256-GCM) with a key that only our server has, and used only to run your builds. It&apos;s never shown again, not even to you; you can remove it at any time, and it&apos;s deleted with your account.</li>
           <li>Free builds are counted with a random id in a cookie (no name, no email), and per IP address per day. The counts are stored hashed and expire after a year.</li>
-          <li>You can delete your account and all your decks at any time on the account page. It happens right away.</li>
+          <li>If you make a profile, it&apos;s public: the name, handle, picture (a card&apos;s art) and words you give it, and your saved decks except the ones you hide, with their likes and views. Your email is never shown. You can hide any deck or take the profile down at any time.</li>
+          <li>Likes are stored with your account, so you can see and undo yours; a deck&apos;s player sees only the count. Reports are stored with the reporting account and seen only by the site&apos;s admins.</li>
+          <li>Views of public decks are counted once per visitor a day, using a hash of the IP address and browser that&apos;s kept for two days. Only the count stays.</li>
+          <li>You can delete your account and all your decks at any time on the account page. It happens right away, and takes your profile, likes and reports with it.</li>
         </ul>
         <h3>Services we use</h3>
         <ul>

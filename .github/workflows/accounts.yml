@@ -5,9 +5,9 @@ name: accounts
 
 on:
   push:
-    paths: ["supabase/**", "lib/server/supabase.ts", "lib/server/account-handler.ts", "lib/server/key-vault.ts", "scripts/check-supabase.mjs", ".github/workflows/accounts.yml"]
+    paths: ["supabase/**", "lib/server/supabase.ts", "lib/server/account-handler.ts", "lib/server/key-vault.ts", "lib/server/community-handler.ts", "scripts/check-supabase.mjs", "scripts/check-migrations.mjs", ".github/workflows/accounts.yml"]
   pull_request:
-    paths: ["supabase/**", "lib/server/supabase.ts", "lib/server/account-handler.ts", "lib/server/key-vault.ts", "scripts/check-supabase.mjs", ".github/workflows/accounts.yml"]
+    paths: ["supabase/**", "lib/server/supabase.ts", "lib/server/account-handler.ts", "lib/server/key-vault.ts", "lib/server/community-handler.ts", "scripts/check-supabase.mjs", "scripts/check-migrations.mjs", ".github/workflows/accounts.yml"]
   workflow_dispatch:
 
 permissions:
@@ -40,3 +40,5 @@ jobs:
           export SUPABASE_ANON_KEY="${ANON_KEY:-$PUBLISHABLE_KEY}"
           export SUPABASE_SERVICE_ROLE_KEY="${SERVICE_ROLE_KEY:-$SECRET_KEY}"
           node scripts/check-supabase.mjs
+      - name: Check the migrations on a plain Postgres (twice each, then supabase/tests)
+        run: node scripts/check-migrations.mjs

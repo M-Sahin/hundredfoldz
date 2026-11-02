@@ -216,7 +216,22 @@ export interface CloudDeck {
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const LIST = "id,name,commander,partner,colors,bracket,model,usage,created_at,hidden,description,likes";
+const BASE_LIST = "id,name,commander,partner,colors,bracket,model,usage,created_at";
+const FULL_LIST = `${BASE_LIST},hidden,description,likes`;
+// Before the profiles migration (20261102000000_profiles.sql) the decks table has no hidden,
+// description, likes or based_on: My decks keeps working without them, and looks again in 5 minutes.
+let oldSchemaUntil = 0;
+const missingColumn = (e: unknown) => e instanceof SupabaseError && /column|schema cache/i.test(e.message) && /hidden|description|likes|based_on/i.test(e.message);
+async function withColumns<T>(run: (list: string, full: boolean) => Promise<T>): Promise<T> {
+  if (Date.now() < oldSchemaUntil) return run(BASE_LIST, false);
+  try {
+    return await run(FULL_LIST, true);
+  } catch (e) {
+    if (!missingColumn(e)) throw e;
+    oldSchemaUntil = Date.now() + 5 * 60_000;
+    return run(BASE_LIST, false);
+  }
+}
 
 function toCloud(r: any): CloudDeck {
   return {
@@ -277,7 +292,7 @@ export async function handleDecks(request: Request, deps: Deps = {}): Promise<Re
   const { cfg, auth } = a;
   try {
     if (request.method === "GET") {
-      const rows = await rest<any[]>(cfg, auth.token, `decks?select=${LIST}&order=created_at.desc&limit=1000`, { method: "GET" }, deps.fetch);
+      const rows = await withColumns((list) => rest<any[]>(cfg, auth.token, `decks?select=${list}&order=created_at.desc&limit=1000`, { method: "GET" }, deps.fetch));
       return json({ decks: rows.map(toCloud) }, 200, auth.setCookies);
     }
     if (request.method !== "POST") return json({ error: "Method not allowed." }, 405, auth.setCookies);
@@ -302,7 +317,9 @@ export async function handleDecks(request: Request, deps: Deps = {}): Promise<Re
     }
     if (!rows.length) return json({ error: "That deck couldn't be read." }, 400, auth.setCookies);
     // the same deck twice is one row (unique user_id + payload hash): ignore duplicates
-    const saved = await rest<any[]>(cfg, auth.token, `decks?on_conflict=user_id,d_hash&select=${LIST}`, { method: "POST", headers: { prefer: "resolution=ignore-duplicates,return=representation" }, body: JSON.stringify(rows) }, deps.fetch);
+    const saved = await withColumns((list, full) =>
+      rest<any[]>(cfg, auth.token, `decks?on_conflict=user_id,d_hash&select=${list}`, { method: "POST", headers: { prefer: "resolution=ignore-duplicates,return=representation" }, body: JSON.stringify(full ? rows : rows.map(({ based_on, ...r }: any) => r)) }, deps.fetch),
+    );
     // the Save button sends one deck; moving a browser's decks over sends many (not counted as saves)
     if (rows.length === 1 && saved.length === 1) await count("deck_saved|account");
     return json({ saved: saved.map(toCloud), duplicates: rows.length - saved.length, skipped }, 201, auth.setCookies);
@@ -320,7 +337,7 @@ export async function handleDeck(request: Request, id: string, deps: Deps = {}):
   const where = `decks?id=eq.${id}`;
   try {
     if (request.method === "GET") {
-      const rows = await rest<any[]>(cfg, auth.token, `${where}&select=${LIST},d`, { method: "GET" }, deps.fetch);
+      const rows = await withColumns((list) => rest<any[]>(cfg, auth.token, `${where}&select=${list},d`, { method: "GET" }, deps.fetch));
       if (!rows.length) return json({ error: "Unknown deck." }, 404, auth.setCookies);
       return json({ deck: { ...toCloud(rows[0]), d: rows[0].d } }, 200, auth.setCookies);
     }
@@ -336,7 +353,7 @@ export async function handleDeck(request: Request, id: string, deps: Deps = {}):
       if (typeof body?.hidden === "boolean") patch.hidden = body.hidden;
       if (body?.description !== undefined) patch.description = cleanText(body.description, TEXT_LIMITS.description, true);
       if (!Object.keys(patch).length) return json({ error: "Nothing to change." }, 400, auth.setCookies);
-      const rows = await rest<any[]>(cfg, auth.token, `${where}&select=${LIST}`, { method: "PATCH", headers: { prefer: "return=representation" }, body: JSON.stringify(patch) }, deps.fetch);
+      const rows = await withColumns((list) => rest<any[]>(cfg, auth.token, `${where}&select=${list}`, { method: "PATCH", headers: { prefer: "return=representation" }, body: JSON.stringify(patch) }, deps.fetch));
       if (!rows.length) return json({ error: "Unknown deck." }, 404, auth.setCookies);
       return json({ deck: toCloud(rows[0]) }, 200, auth.setCookies);
     }

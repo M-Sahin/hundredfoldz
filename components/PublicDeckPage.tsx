@@ -249,14 +249,14 @@ export default function PublicDeckPage({ deck: pd, more }: { deck: PublicDeck; m
           </section>
         ) : null}
 
-        <p className="public-deck-foot">
+        <div className="public-deck-foot">
           {views !== null ? (
             <>
               <EyeIcon size={15} /> {shortCount(views)} view{views === 1 ? "" : "s"}, counted once per visitor a day.{" "}
             </>
           ) : null}
           {!owner ? <ReportButton target={{ kind: "deck", deck: pd.id }} what="deck" /> : null}
-        </p>
+        </div>
       </main>
       <LoginDialog open={login !== null} onClose={() => setLogin(null)} title="Log in to like decks" lead="Likes come from accounts, one per player. No password: an email link, Discord or Google." next={deckPath(pd.author.handle, pd.id)} />
       <SiteFooter />
