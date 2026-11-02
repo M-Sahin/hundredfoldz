@@ -9,6 +9,24 @@ import { myDecks, storage, type SavedDeck } from "./api";
 import { cloudDecks, loadAccount } from "./account";
 
 const draftStore = storage<WorkshopDeck>("hundredfold:workshop");
+// the deck last saved from the workshop (its share payload), so a later visit can say it's saved
+const savedStore = storage<{ d: string; where: "account" | "browser" }>("hundredfold:workshop-saved");
+
+/** Was this deck, exactly as it is, saved from the workshop? Where to, or null. */
+export const workshopSaved = {
+  async where(deck: Deck): Promise<"account" | "browser" | null> {
+    const s = savedStore.get();
+    if (!s) return null;
+    try {
+      return (await encodeDeck(deck)) === s.d ? s.where : null;
+    } catch {
+      return null;
+    }
+  },
+  clear() {
+    savedStore.set(null);
+  },
+};
 
 /** The deck being built (with every card's Scryfall data, so a reload needs no lookups) and its plan. */
 export const workshopDraft = {
@@ -33,10 +51,9 @@ export async function saveToMyDecks(deck: Deck): Promise<"account" | "browser"> 
     colors: deck.colorIdentity,
     d,
   };
-  if ((await loadAccount()).user) {
-    await cloudDecks.save(entry);
-    return "account";
-  }
-  myDecks.add(entry);
-  return "browser";
+  const where = (await loadAccount()).user ? "account" : "browser";
+  if (where === "account") await cloudDecks.save(entry);
+  else myDecks.add(entry);
+  savedStore.set({ d, where });
+  return where;
 }

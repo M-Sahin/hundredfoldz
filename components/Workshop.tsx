@@ -56,7 +56,7 @@ import {
 } from "../lib/shared/workshop";
 import { cardByName, commanderNames, freeDeals, handoff, partnerNames, randomCard, resolveDeck, searchCards, type FreeDeals } from "../lib/client/api";
 import { useHumanCheck } from "./useHumanCheck";
-import { saveToMyDecks, workshopDraft } from "../lib/client/workshop";
+import { saveToMyDecks, workshopDraft, workshopSaved } from "../lib/client/workshop";
 import { useCurrency } from "../lib/client/currency";
 import { useSiteConfig } from "../lib/client/site-config";
 import { useAccount } from "../lib/client/account";
@@ -122,6 +122,7 @@ export default function Workshop() {
   const [undo, setUndo] = useState<UndoStep[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<"account" | "browser" | "saving" | null>(null);
+  const [confirmNew, setConfirmNew] = useState(false); // "New deck" on a deck that isn't saved
   // card picks: the visitor's own key (the key sheet loads a remembered one), the slot being dealt,
   // and the cards passed on per slot this visit
   const [key, setKey] = useState<KeyState>({ key: "", model: "" });
@@ -174,6 +175,16 @@ export default function Workshop() {
   }, [ws, loaded]);
 
   const deck = useMemo(() => toDeck(ws), [ws]);
+  // back on a deck saved last time, just as it was: say it's saved (and offer a new one)
+  useEffect(() => {
+    if (!loaded || !ws.commander) return;
+    let live = true;
+    void workshopSaved.where(deck).then((w) => live && w && setSaved((s) => s ?? w));
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded]);
   const analysis = useMemo(() => (ws.commander ? analyzeDeck(deck, { currency: cur }) : null), [deck, ws.commander, cur]);
   const validation = useMemo(() => validateDeck(deck, [], [], { bracket: ws.bracket }), [deck, ws.bracket]);
   const checks = useMemo(() => (analysis ? deckChecks(analysis) : []), [analysis]);
@@ -302,16 +313,34 @@ export default function Workshop() {
     change(next, `Added ${r.added} basic land${r.added === 1 ? "" : "s"}`, `Added ${r.added} basic land${r.added === 1 ? "" : "s"}, split by what your spells need.`);
   };
 
-  const save = async () => {
+  const save = async (): Promise<boolean> => {
     setSaved("saving");
     try {
       const where = await saveToMyDecks(deck);
       setSaved(where);
       track("workshop|saved");
+      return true;
     } catch (e) {
       setSaved(null);
       setError(`Couldn't save the deck: ${(e as Error).message}`);
+      return false;
     }
+  };
+
+  // a new deck: the empty workshop and the commander picker; Undo brings the last one back
+  const startNew = (justSaved = false) => {
+    const wasSaved = justSaved || saved === "account" || saved === "browser";
+    setConfirmNew(false);
+    setLeftOut([]);
+    setError(null);
+    setPicking(null);
+    setPane("deck");
+    workshopSaved.clear();
+    change(EMPTY_WORKSHOP, "Started a new deck", wasSaved ? "Started a new deck. The last one is in My decks." : "Started a new deck.");
+  };
+  const newDeck = () => (saved === "account" || saved === "browser" || !ws.cards.length ? startNew() : setConfirmNew(true));
+  const saveThenNew = async () => {
+    if (await save()) startNew(true);
   };
 
   const handOver = async () => {
@@ -336,9 +365,10 @@ export default function Workshop() {
     setPane("search");
   };
 
-  const startOver = () => {
+  // the Deck tab's "Clear all cards": the commander, partner, bracket and plan stay
+  const clearCards = () => {
     setLeftOut([]);
-    change(EMPTY_WORKSHOP, "Started over", "Started over.");
+    change({ ...ws, cards: [] }, "Cleared the cards", `Removed every card. ${ws.commander?.name ?? "The commander"} stays.`);
   };
 
   const toastEl = toast ? (
@@ -417,7 +447,7 @@ export default function Workshop() {
                   Keep {ws.commander.name}
                 </button>
               ) : null}
-              {/* after Start over, the way back to the deck */}
+              {/* after New deck, the way back to the last one */}
               {!ws.commander && undo.length ? undoButton : null}
             </div>
             {importing ? <DecklistImport onOpen={openList} onCancel={() => setImporting(false)} /> : null}
@@ -529,6 +559,9 @@ export default function Workshop() {
 
           <div className="ws-actions">
             {undoButton}
+            <button type="button" className="btn" onClick={newDeck} aria-expanded={confirmNew || undefined} data-testid="ws-new">
+              New deck
+            </button>
             <button type="button" className="btn" onClick={() => void handOver()} disabled={!!step.problem} title={step.problem ?? undefined} data-testid="ws-claude">
               {step.kind === "complete" ? "Finish it for me" : "Review my deck"}
             </button>
@@ -544,9 +577,28 @@ export default function Workshop() {
               {saved === "saving" ? "Saving…" : saved ? "Saved ✓" : "Save deck"}
             </button>
           </div>
+          {confirmNew ? (
+            <div className="ws-confirm" role="group" aria-label="Start a new deck?" data-testid="ws-new-confirm">
+              <p>This deck isn&apos;t saved yet. Save it to My decks before you start a new one?</p>
+              <div className="ws-confirm-actions">
+                <button type="button" className="btn" onClick={() => void saveThenNew()} disabled={saved === "saving"} data-testid="ws-new-save">
+                  {saved === "saving" ? "Saving…" : "Save it, then start new"}
+                </button>
+                <button type="button" className="btn" onClick={() => startNew()} data-testid="ws-new-discard">
+                  Start new without saving
+                </button>
+                <button type="button" className="btn btn--quiet" onClick={() => setConfirmNew(false)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : null}
           {saved === "account" || saved === "browser" ? (
             <p className="note ws-saved" role="status">
-              {saved === "account" ? "Saved to My decks." : "Saved in this browser."} <a href="/decks">Open My decks</a>
+              {saved === "account" ? "Saved to My decks." : "Saved in this browser."} <a href="/decks">Open My decks</a> ·{" "}
+              <button type="button" className="link" onClick={() => startNew()} data-testid="ws-saved-new">
+                Start a new deck
+              </button>
             </p>
           ) : null}
           {leftOut.length ? (
@@ -590,7 +642,7 @@ export default function Workshop() {
             onRemove={remove}
             onOpen={setOpen}
             onBasics={() => void addBasics()}
-            onStartOver={startOver}
+            onClear={clearCards}
             onDeal={() => jumpTo("checks", "[data-testid=ws-deal]")}
             onFind={() => jumpTo("search", ".ws-pane[data-pane=search]", "[data-testid=ws-q]")}
           />
@@ -993,7 +1045,7 @@ function DeckPane({
   onRemove,
   onOpen,
   onBasics,
-  onStartOver,
+  onClear,
   onDeal,
   onFind,
 }: {
@@ -1001,7 +1053,7 @@ function DeckPane({
   onRemove: (name: string) => void;
   onOpen: (c: DeckCard) => void;
   onBasics: () => void;
-  onStartOver: () => void;
+  onClear: () => void;
   /** where new cards come from, linked from the hand tab */
   onDeal: () => void;
   onFind: () => void;
@@ -1039,17 +1091,17 @@ function DeckPane({
             {ws.cards.length ? (
               sure ? (
                 <span className="ws-sure">
-                  Remove every card?{" "}
-                  <button type="button" className="link" onClick={() => (onStartOver(), setSure(false))}>
-                    Yes, start over
+                  Remove every card? The commander stays.{" "}
+                  <button type="button" className="link" onClick={() => (onClear(), setSure(false))} data-testid="ws-clear-yes">
+                    Yes, clear them
                   </button>{" "}
                   <button type="button" className="link" onClick={() => setSure(false)}>
                     No
                   </button>
                 </span>
               ) : (
-                <button type="button" className="btn btn--small btn--quiet" onClick={() => setSure(true)}>
-                  Start over
+                <button type="button" className="btn btn--small btn--quiet" onClick={() => setSure(true)} data-testid="ws-clear">
+                  Clear all cards
                 </button>
               )
             ) : null}

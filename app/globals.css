@@ -4515,6 +4515,29 @@ main.ws {
   flex-basis: 100%;
   margin: 0;
 }
+/* "New deck" on a deck that isn't saved */
+.ws-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 2px solid var(--zone-line);
+  border-radius: var(--radius-zone);
+}
+.ws-confirm p {
+  margin: 0;
+  color: var(--ink);
+}
+.ws-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+@media (max-width: 640px) {
+  .ws-confirm-actions .btn {
+    flex: 1 1 100%;
+  }
+}
 
 .ws-panes {
   display: grid;
