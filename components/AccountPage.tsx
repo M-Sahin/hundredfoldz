@@ -3,6 +3,8 @@
 // Logged out: the login form.
 import { useEffect, useState } from "react";
 import { account, useAccount } from "../lib/client/account";
+import { useMyProfile } from "../lib/client/community";
+import { profilePath } from "../lib/shared/community";
 import { LoginForm } from "./LoginForm";
 import { KeyPanel, type KeyState } from "./KeyPanel";
 import { useSiteConfig } from "../lib/client/site-config";
@@ -25,6 +27,7 @@ export default function AccountPage() {
   const [deleted, setDeleted] = useState(false);
   const site = useSiteConfig();
   const [keyState, setKeyState] = useState<KeyState>({ key: "", model: DEFAULT_MODEL });
+  const profile = useMyProfile();
 
   useEffect(() => {
     const why = new URLSearchParams(window.location.search).get("login");
@@ -75,6 +78,35 @@ export default function AccountPage() {
                     Log out
                   </button>
                 </div>
+              </section>
+              <section className="panel" data-testid="account-profile">
+                <h3>Your profile</h3>
+                {profile === undefined ? <p className="panel-sub">Loading…</p> : null}
+                {profile ? (
+                  <>
+                    <p className="panel-sub">
+                      Your page is <a href={profilePath(profile.handle)}>@{profile.handle}</a>: your name, picture, a few words and the decks you don&apos;t hide.
+                    </p>
+                    <div className="deck-actions">
+                      <a className="btn" href={profilePath(profile.handle)}>
+                        See your profile
+                      </a>
+                      <a className="btn btn--quiet" href="/account/profile">
+                        Edit profile
+                      </a>
+                    </div>
+                  </>
+                ) : null}
+                {profile === null ? (
+                  <>
+                    <p className="panel-sub">A page other players can visit: your name, a picture (any card&apos;s art), a few words and your decks. Others can like your decks. You pick which decks show.</p>
+                    <div className="deck-actions">
+                      <a className="btn" href="/account/profile" data-testid="create-profile">
+                        Create your profile
+                      </a>
+                    </div>
+                  </>
+                ) : null}
               </section>
               {site?.ownKeys ? (
                 <section className="panel account-key" id="key" data-testid="account-key">

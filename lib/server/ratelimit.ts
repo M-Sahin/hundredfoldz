@@ -132,6 +132,13 @@ export const LIMITS = {
   deckSave: { kind: "save", max: 120 },
   deckSaveIp: { kind: "save-ip", max: 300 },
   accountDelete: { kind: "delete", max: 10 },
+  /** profiles and public decks: saving a profile or a deck's settings, likes, reports, views (per IP) */
+  profileSave: { kind: "profile", max: 60 },
+  like: { kind: "like", max: 300 },
+  report: { kind: "report", max: 20 },
+  view: { kind: "view", max: 600 },
+  /** the public profile and deck pages ask the database once per visit */
+  publicPage: { kind: "public-page", max: 1200 },
   /** actions the browser counts for /stats */
   stats: { kind: "stats", max: 300 },
 } satisfies Record<string, LimitRule | ((n: number) => LimitRule)>;

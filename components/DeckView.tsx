@@ -47,6 +47,9 @@ export function DeckView({
   onAskReview,
   onEdit,
   firstTab = "cards",
+  byline,
+  about,
+  leadAction,
 }: {
   deck: Deck;
   validation: Validation;
@@ -68,6 +71,12 @@ export function DeckView({
   onEdit?: () => void;
   /** Which tab to open on (uploaded decks open on the review). */
   firstTab?: Tab;
+  /** A public deck: its player (a link to their profile), above the kicker. */
+  byline?: ReactNode;
+  /** A public deck: the player's own words about it, under the strategy. */
+  about?: ReactNode;
+  /** First in the action row (a public deck's Like), before Share. */
+  leadAction?: ReactNode;
 }) {
   const [buying, setBuying] = useState(false);
   const site = useSiteConfig();
@@ -124,6 +133,7 @@ export function DeckView({
         <div className="deck-banner-inner">
           <CardFace card={cmd.info} name={cmd.name} tilt className="deck-cmd" onClick={() => setOpen(cmd)} loading="eager" />
           <div className="deck-title">
+            {byline}
             <p className="deck-kicker">
               <IdentityPips colors={deck.colorIdentity} /> {shared ? "Shared with you: a " : ""}
               {shared ? "b" : "B"}racket {deck.bracket ?? 3} Commander deck led by {cmd.name}
@@ -131,9 +141,11 @@ export function DeckView({
             </p>
             <h2>{deck.name}</h2>
             <p className="deck-strategy">{deck.strategy}</p>
+            {about}
             <DeckStats deck={deck} validation={validation} openers={openers} />
             <div className="deck-actions">
-              <ShareButton deck={deck} shareD={shareD} />
+              {leadAction}
+              <ShareButton deck={deck} shareD={shareD} {...(leadAction ? { primary: false } : {})} />
               {saveSlot}
               {onEdit ? (
                 <button type="button" className="btn" onClick={onEdit} data-testid="edit-workshop">

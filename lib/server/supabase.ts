@@ -165,6 +165,11 @@ export function rest<T>(cfg: SupabaseConfig, token: string, path: string, init: 
   return call<T>(cfg, `/rest/v1/${path}`, { ...init, token }, f);
 }
 
+/** A database function (supabase/migrations), with the user's token or, without one, as a visitor (anon). */
+export function rpc<T>(cfg: SupabaseConfig, fn: string, args: Record<string, unknown>, token?: string | null, f?: Fetch) {
+  return call<T>(cfg, `/rest/v1/rpc/${fn}`, { method: "POST", body: JSON.stringify(args), ...(token ? { token } : {}) }, f);
+}
+
 // ---- the session behind a request ----------------------------------------------------
 
 function jwtPayload(token: string): Record<string, any> | null {
