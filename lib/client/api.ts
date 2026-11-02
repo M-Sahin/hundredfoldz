@@ -407,6 +407,10 @@ export interface SavedDeck {
   usage?: Usage;
   /** Saved in the account (d is loaded when opened), not in this browser. */
   cloud?: boolean;
+  /** account decks: kept off the player's profile, its description and likes */
+  hidden?: boolean;
+  description?: string;
+  likes?: number;
 }
 
 const DECKS = "hundredfold:my-decks";

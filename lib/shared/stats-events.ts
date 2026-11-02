@@ -33,6 +33,13 @@ export const SERVER_EVENTS = {
   share_link: [],
   login_email: [],
   account_deleted: [],
+  /** profiles: made, changed, taken down by their player */
+  profile: ["created", "updated", "removed"],
+  /** public decks: a like or an unlike, a view counted, a report filed (on a deck or a profile), a refusal */
+  deck_like: ["on", "off"],
+  deck_view: [],
+  report: ["deck", "profile"],
+  community_refused: ["rate_limit", "taken_handle", "not_public"],
   /** an uncaught error in a server route */
   server_error: ["api", "page"],
 } as const satisfies Record<string, readonly string[]>;

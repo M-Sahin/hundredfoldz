@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Checks the accounts migration against a real (local) Supabase: two users, each sees and changes
-// only their own decks, columns other than the name can't change, deleting an account removes its
-// decks. Run after `supabase start` (CI: .github/workflows/accounts.yml):
+// Checks the migrations against a real (local) Supabase: two users, each sees and changes only
+// their own decks, columns other than the name can't change, deleting an account removes its
+// decks; then profiles, public decks, likes, reports and moderation with more users. Run after `supabase start` (CI: .github/workflows/accounts.yml):
 //   SUPABASE_URL=… SUPABASE_ANON_KEY=… SUPABASE_SERVICE_ROLE_KEY=… node scripts/check-supabase.mjs
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
@@ -19,9 +19,9 @@ try {
 const entry = join(root, ".test-build", "accounts-entry.ts");
 const out = join(root, ".test-build", "accounts.mjs");
 mkdirSync(dirname(entry), { recursive: true });
-writeFileSync(entry, `export * from "../lib/server/account-handler"; export { encodeDeck } from "../lib/shared/share";`);
+writeFileSync(entry, `export * from "../lib/server/account-handler"; export * from "../lib/server/community-handler"; export { encodeDeck } from "../lib/shared/share";`);
 await esbuild.build({ entryPoints: [entry], bundle: true, platform: "node", format: "esm", outfile: out, logLevel: "warning" });
-const { handleDecks, handleDeck, handleDeleteAccount, handleSavedKey, savedKeyFor, encodeDeck } = await import(pathToFileURL(out).href);
+const { handleDecks, handleDeck, handleDeleteAccount, handleSavedKey, savedKeyFor, encodeDeck, handleProfile, handleLike, handleReport, handleAdminReports, loadPublicProfile, loadPublicDeck, resetLimits } = await import(pathToFileURL(out).href);
 process.env.KEY_ENCRYPTION_SECRET ||= Buffer.alloc(32, 9).toString("base64");
 
 const url = process.env.SUPABASE_URL;
@@ -129,6 +129,75 @@ check(planted.status >= 400, `B can't write a key into A's account (${planted.st
 await api("/rest/v1/api_keys", { method: "POST", body: JSON.stringify({ user_id: b.id, sealed: rowA.body?.[0]?.sealed, last4: "LAST" }) }, anon, b.token);
 check((await savedKeyFor(req("/api/generate", b.token), { config })) === null, "A's sealed key copied to B doesn't open for B");
 
+// ---- profiles and public decks -------------------------------------------------------------
+const second = listA.decks.find((d) => d.id !== savedA.id);
+const handle = `gail${stamp}`.slice(0, 24);
+r = await handleProfile(req("/api/profile", a.token, { method: "PUT", body: { handle, name: "Gail", bio: "Golgari forever.", avatarCard: null, hidden: [second.id] } }), { config });
+check(r.status === 201, `A makes a profile, hiding one deck (${r.status})`);
+const pub = await loadPublicProfile(handle, { config });
+check(pub?.decks.length === 1 && pub.decks[0].id === savedA.id && pub.decks[0].name === "Renamed", `the profile shows the one shown deck, under its new name (${pub?.decks.length})`);
+check(!JSON.stringify(pub).includes(a.id), "the public profile has no user id");
+check((await loadPublicDeck(second.id, { config })) === null, "the hidden deck has no public page");
+const pd = await loadPublicDeck(savedA.id, { config });
+check(pd?.author.handle === handle && pd.d === dA, "the shown deck's public page has its player and the deck");
+const profRows = await api("/rest/v1/profiles?select=handle", {}, anon, b.token);
+check(Array.isArray(profRows.body) && profRows.body.length === 0, "B can't read A's profile row");
+check((await api("/rest/v1/profiles?select=handle")).status >= 400, "logged out, the profiles table refuses");
+r = await handleProfile(req("/api/profile", b.token, { method: "PUT", body: { handle, name: "Fake Gail" } }), { config });
+check(r.status === 409, `B can't take A's handle (${r.status})`);
+r = await handleProfile(req("/api/profile", b.token, { method: "PUT", body: { handle: `bee${stamp}`.slice(0, 24), name: "Bee" } }), { config });
+check(r.status === 201, `B makes a profile (${r.status})`);
+const sneakyProfile = await api(`/rest/v1/profiles?user_id=eq.${b.id}`, { method: "PATCH", body: JSON.stringify({ removed: false }) }, anon, b.token);
+check(sneakyProfile.status >= 400, `B can't set removed on their profile (${sneakyProfile.status})`);
+
+// likes
+r = await handleLike(req("/api/likes", b.token, { method: "POST", body: { deck: savedA.id, on: true } }), { config });
+check(r.status === 200, `B likes A's deck (${r.status})`);
+r = await handleLike(req("/api/likes", b.token, { method: "POST", body: { deck: savedA.id, on: true } }), { config });
+check(r.status === 200 && (await loadPublicDeck(savedA.id, { config }))?.likes === 1, "liking twice still counts once");
+check((await (await handleLike(req(`/api/likes?deck=${savedA.id}`, b.token), { config })).json()).liked === true, "B sees their like");
+check((await (await handleLike(req(`/api/likes?deck=${savedA.id}`, a.token), { config })).json()).liked === false, "A doesn't see B's like as their own");
+r = await handleLike(req("/api/likes", a.token, { method: "POST", body: { deck: savedA.id, on: true } }), { config });
+check(r.status === 403, `A can't like their own deck (${r.status})`);
+r = await handleLike(req("/api/likes", b.token, { method: "POST", body: { deck: second.id, on: true } }), { config });
+check(r.status === 403, `B can't like A's hidden deck (${r.status})`);
+const pump = await api(`/rest/v1/decks?id=eq.${savedA.id}`, { method: "PATCH", body: JSON.stringify({ likes: 1000 }) }, anon, a.token);
+check(pump.status >= 400, `A can't set their deck's likes (${pump.status})`);
+const likeRows = await api("/rest/v1/likes?select=user_id", {}, anon, a.token);
+check(Array.isArray(likeRows.body) && likeRows.body.length === 0, "A can't see who liked their deck");
+
+// reports: three accounts take a deck down until an admin looks
+const c = await user(`c${stamp}@example.com`);
+const d = await user(`d${stamp}@example.com`);
+const boss = await user(`boss${stamp}@example.com`);
+resetLimits();
+for (const [who, n] of [
+  [b, 1],
+  [c, 2],
+]) {
+  r = await handleReport(req("/api/report", who.token, { method: "POST", body: { kind: "deck", deck: savedA.id, reason: "test report" } }), { config });
+  check(r.status === 200 && (await loadPublicDeck(savedA.id, { config })) !== null, `report ${n}: still up (${r.status})`);
+}
+r = await handleReport(req("/api/report", d.token, { method: "POST", body: { kind: "deck", deck: savedA.id, reason: "test report" } }), { config });
+check(r.status === 200 && (await loadPublicDeck(savedA.id, { config })) === null, "report 3: taken down");
+r = await handleAdminReports(req("/api/admin/reports", b.token), { config });
+check(r.status === 403, `B isn't an admin (${r.status})`);
+const addAdmin = await api("/rest/v1/admins", { method: "POST", body: JSON.stringify({ email: `boss${stamp}@example.com` }) }, service);
+check(addAdmin.status < 300, `the site's owner adds an admin (${addAdmin.status})`);
+const queue = await (await handleAdminReports(req("/api/admin/reports", boss.token), { config })).json();
+const item = queue.reports?.find((x) => x.target === savedA.id);
+check(item?.count === 3 && item.removed === true && item.handle === handle, "the admin sees the deck, 3 reports, down");
+r = await handleAdminReports(req("/api/admin/reports", boss.token, { method: "POST", body: { kind: "deck", target: savedA.id, remove: false } }), { config });
+check(r.status === 200 && (await loadPublicDeck(savedA.id, { config })) !== null, "the admin puts it back up");
+
+// the player hides it, shows it again with a description, then takes the profile down
+r = await handleDeck(req(`/api/decks/${savedA.id}`, a.token, { method: "PATCH", body: { hidden: true, description: "Mine." } }), savedA.id, { config });
+check(r.status === 200 && (await loadPublicDeck(savedA.id, { config })) === null, "A hides the deck: its page is gone");
+await handleDeck(req(`/api/decks/${savedA.id}`, a.token, { method: "PATCH", body: { hidden: false } }), savedA.id, { config });
+check((await loadPublicDeck(savedA.id, { config }))?.description === "Mine.", "shown again, with its description");
+r = await handleProfile(req("/api/profile", a.token, { method: "DELETE" }), { config });
+check(r.status === 200 && (await loadPublicProfile(handle, { config })) === null && (await loadPublicDeck(savedA.id, { config })) === null, "A takes the profile down: the page and its decks are gone");
+
 // delete the account: the decks go with it
 r = await handleDeleteAccount(req("/api/account/delete", a.token, { method: "POST", body: { confirm: "delete" } }), { config });
 check(r.status === 200, `A deletes their account (${r.status})`);
@@ -138,6 +207,8 @@ const keysLeft = await api(`/rest/v1/api_keys?select=user_id&user_id=eq.${a.id}`
 check(Array.isArray(keysLeft.body) && keysLeft.body.length === 0, "A's saved key is gone");
 const gone = await api(`/auth/v1/admin/users/${a.id}`, {}, service);
 check(gone.status === 404, `A's user is gone (${gone.status})`);
+const bLikes = await api(`/rest/v1/likes?select=deck_id&user_id=eq.${b.id}`, {}, service);
+check(Array.isArray(bLikes.body) && bLikes.body.length === 0, "B's like went with A's deck");
 const bDelete = await api("/rest/v1/rpc/delete_own_account", { method: "POST", body: "{}" });
 check(bDelete.status >= 400, `logged out, delete_own_account refuses (${bDelete.status})`);
 

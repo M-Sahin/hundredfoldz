@@ -49,7 +49,7 @@ export function useAccount(): AccountState {
   return s;
 }
 
-async function call<T>(url: string, init?: RequestInit): Promise<T> {
+export async function call<T>(url: string, init?: RequestInit): Promise<T> {
   const r = await fetch(url, { cache: "no-store", ...init, headers: { "content-type": "application/json", ...(init?.headers ?? {}) } });
   const j = await r.json().catch(() => ({}));
   if (r.status === 401) void loadAccount(true); // session ended: update the navbar
@@ -80,13 +80,16 @@ export const cloudDecks = {
     const j = await call<{ deck: { d: string } }>(`/api/decks/${encodeURIComponent(id)}`);
     return j.deck.d;
   },
-  save(deck: SavedDeck) {
-    return call<{ saved: unknown[]; duplicates: number }>("/api/decks", { method: "POST", body: JSON.stringify({ d: deck.d, colors: deck.colors, model: deck.model, usage: deck.usage }) });
+  /** `basedOn`: the public deck this is a copy of */
+  save(deck: SavedDeck, basedOn?: string) {
+    return call<{ saved: unknown[]; duplicates: number }>("/api/decks", { method: "POST", body: JSON.stringify({ d: deck.d, colors: deck.colors, model: deck.model, usage: deck.usage, ...(basedOn ? { basedOn } : {}) }) });
   },
   importMany(decks: SavedDeck[]) {
     return call<{ saved: unknown[]; duplicates: number; skipped: number }>("/api/decks", { method: "POST", body: JSON.stringify({ decks: decks.map((d) => ({ d: d.d, colors: d.colors, model: d.model, usage: d.usage })) }) });
   },
   rename: (id: string, name: string) => call(`/api/decks/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ name }) }),
+  /** hide from your profile or show on it, or change its description */
+  update: (id: string, patch: { hidden?: boolean; description?: string }) => call(`/api/decks/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(patch) }),
   remove: (id: string) => call(`/api/decks/${encodeURIComponent(id)}`, { method: "DELETE" }),
 };
 

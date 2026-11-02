@@ -6,6 +6,7 @@ import { KEY_PATTERN, openKey, sealKey, vaultOn } from "./key-vault";
 import { friendlyModelError, listModels } from "./anthropic";
 import { MODEL_ID } from "../shared/models";
 import { count } from "./stats";
+import { LIMITS as TEXT_LIMITS, cleanText } from "../shared/community";
 import {
   COOKIE,
   clearSessionCookies,
@@ -37,9 +38,9 @@ export interface Deps {
   config?: SupabaseConfig | null;
 }
 
-const cfgOf = (deps: Deps) => (deps.config !== undefined ? deps.config : supabaseConfig());
+export const cfgOf = (deps: Deps) => (deps.config !== undefined ? deps.config : supabaseConfig());
 
-function json(body: unknown, status = 200, setCookies: string[] = []): Response {
+export function json(body: unknown, status = 200, setCookies: string[] = []): Response {
   const headers = new Headers({ "content-type": "application/json", "cache-control": "no-store" });
   for (const c of setCookies) headers.append("set-cookie", c);
   return new Response(JSON.stringify(body), { status, headers });
@@ -51,7 +52,7 @@ function redirect(to: string, setCookies: string[] = []): Response {
   return new Response(null, { status: 303, headers });
 }
 
-function cookieHeaders(setCookies: string[]): Headers {
+export function cookieHeaders(setCookies: string[]): Headers {
   const h = new Headers();
   for (const c of setCookies) h.append("set-cookie", c);
   return h;
@@ -60,7 +61,7 @@ function cookieHeaders(setCookies: string[]): Headers {
 const OFF = () => json({ error: "Accounts aren't set up on this site." }, 404);
 
 /** Changes must come from our own pages: SameSite cookies plus an Origin check. */
-function sameOrigin(request: Request): boolean {
+export function sameOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
   if (!origin) return false;
   const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? new URL(request.url).host;
@@ -74,7 +75,7 @@ function sameOrigin(request: Request): boolean {
 
 export { resetRateLimits as resetLimits } from "./ratelimit";
 
-function friendly(e: unknown): string {
+export function friendly(e: unknown): string {
   if (e instanceof SupabaseError) {
     if (/captcha/i.test(e.message)) return "The check that you're not a bot didn't pass. Reload the page and try again.";
     if (/rate limit|too many|email rate/i.test(e.message)) return "Too many login emails were sent just now. Try again in a little while, or log in with Discord or Google.";
@@ -208,10 +209,29 @@ export interface CloudDeck {
   bracket?: number;
   model?: string;
   usage?: Record<string, number>;
+  /** kept off the player's profile */
+  hidden?: boolean;
+  description?: string;
+  likes?: number;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const LIST = "id,name,commander,partner,colors,bracket,model,usage,created_at";
+const BASE_LIST = "id,name,commander,partner,colors,bracket,model,usage,created_at";
+const FULL_LIST = `${BASE_LIST},hidden,description,likes`;
+// Before the profiles migration (20261102000000_profiles.sql) the decks table has no hidden,
+// description, likes or based_on: My decks keeps working without them, and looks again in 5 minutes.
+let oldSchemaUntil = 0;
+const missingColumn = (e: unknown) => e instanceof SupabaseError && /column|schema cache/i.test(e.message) && /hidden|description|likes|based_on/i.test(e.message);
+async function withColumns<T>(run: (list: string, full: boolean) => Promise<T>): Promise<T> {
+  if (Date.now() < oldSchemaUntil) return run(BASE_LIST, false);
+  try {
+    return await run(FULL_LIST, true);
+  } catch (e) {
+    if (!missingColumn(e)) throw e;
+    oldSchemaUntil = Date.now() + 5 * 60_000;
+    return run(BASE_LIST, false);
+  }
+}
 
 function toCloud(r: any): CloudDeck {
   return {
@@ -224,6 +244,9 @@ function toCloud(r: any): CloudDeck {
     ...(r.bracket ? { bracket: r.bracket } : {}),
     ...(r.model ? { model: r.model } : {}),
     ...(r.usage ? { usage: r.usage } : {}),
+    ...(r.hidden ? { hidden: true } : {}),
+    ...(r.description ? { description: r.description } : {}),
+    ...(r.likes ? { likes: r.likes } : {}),
   };
 }
 
@@ -248,10 +271,12 @@ async function deckRow(x: any, userId: string) {
     d,
     model,
     usage: Object.keys(usage).length ? usage : null,
+    // "Save a copy" of a public deck: where it came from
+    ...(typeof x?.basedOn === "string" && UUID.test(x.basedOn) ? { based_on: x.basedOn } : {}),
   };
 }
 
-async function authed(request: Request, deps: Deps) {
+export async function authed(request: Request, deps: Deps) {
   const cfg = cfgOf(deps);
   if (!cfg) return { res: OFF() } as const;
   const auth = await requestAuth(request, cfg, deps.fetch).catch(() => null);
@@ -267,7 +292,7 @@ export async function handleDecks(request: Request, deps: Deps = {}): Promise<Re
   const { cfg, auth } = a;
   try {
     if (request.method === "GET") {
-      const rows = await rest<any[]>(cfg, auth.token, `decks?select=${LIST}&order=created_at.desc&limit=1000`, { method: "GET" }, deps.fetch);
+      const rows = await withColumns((list) => rest<any[]>(cfg, auth.token, `decks?select=${list}&order=created_at.desc&limit=1000`, { method: "GET" }, deps.fetch));
       return json({ decks: rows.map(toCloud) }, 200, auth.setCookies);
     }
     if (request.method !== "POST") return json({ error: "Method not allowed." }, 405, auth.setCookies);
@@ -281,7 +306,7 @@ export async function handleDecks(request: Request, deps: Deps = {}): Promise<Re
       [LIMITS.deckSaveIp, clientIp(request)],
     ]);
     if (!lim.ok) return tooMany("Too many saves this hour.", lim, cookieHeaders(auth.setCookies));
-    const rows = [];
+    const rows: Awaited<ReturnType<typeof deckRow>>[] = [];
     let skipped = 0;
     for (const x of items) {
       try {
@@ -292,7 +317,9 @@ export async function handleDecks(request: Request, deps: Deps = {}): Promise<Re
     }
     if (!rows.length) return json({ error: "That deck couldn't be read." }, 400, auth.setCookies);
     // the same deck twice is one row (unique user_id + payload hash): ignore duplicates
-    const saved = await rest<any[]>(cfg, auth.token, `decks?on_conflict=user_id,d_hash&select=${LIST}`, { method: "POST", headers: { prefer: "resolution=ignore-duplicates,return=representation" }, body: JSON.stringify(rows) }, deps.fetch);
+    const saved = await withColumns((list, full) =>
+      rest<any[]>(cfg, auth.token, `decks?on_conflict=user_id,d_hash&select=${list}`, { method: "POST", headers: { prefer: "resolution=ignore-duplicates,return=representation" }, body: JSON.stringify(full ? rows : rows.map(({ based_on: _, ...r }) => r)) }, deps.fetch),
+    );
     // the Save button sends one deck; moving a browser's decks over sends many (not counted as saves)
     if (rows.length === 1 && saved.length === 1) await count("deck_saved|account");
     return json({ saved: saved.map(toCloud), duplicates: rows.length - saved.length, skipped }, 201, auth.setCookies);
@@ -301,7 +328,7 @@ export async function handleDecks(request: Request, deps: Deps = {}): Promise<Re
   }
 }
 
-/** GET /api/decks/<id>: the deck payload. PATCH {name}: rename. DELETE: remove. */
+/** GET /api/decks/<id>: the deck payload. PATCH {name?, hidden?, description?}: rename, hide from the profile or show on it, describe. DELETE: remove. */
 export async function handleDeck(request: Request, id: string, deps: Deps = {}): Promise<Response> {
   if (!UUID.test(id)) return json({ error: "Unknown deck." }, 404);
   const a = await authed(request, deps);
@@ -310,16 +337,23 @@ export async function handleDeck(request: Request, id: string, deps: Deps = {}):
   const where = `decks?id=eq.${id}`;
   try {
     if (request.method === "GET") {
-      const rows = await rest<any[]>(cfg, auth.token, `${where}&select=${LIST},d`, { method: "GET" }, deps.fetch);
+      const rows = await withColumns((list) => rest<any[]>(cfg, auth.token, `${where}&select=${list},d`, { method: "GET" }, deps.fetch));
       if (!rows.length) return json({ error: "Unknown deck." }, 404, auth.setCookies);
       return json({ deck: { ...toCloud(rows[0]), d: rows[0].d } }, 200, auth.setCookies);
     }
     if (!sameOrigin(request)) return json({ error: "Bad request." }, 403, auth.setCookies);
     if (request.method === "PATCH") {
       const body = await request.json().catch(() => null);
-      const name = String(body?.name ?? "").replace(/\s+/g, " ").trim().slice(0, 120);
-      if (!name) return json({ error: "Give the deck a name." }, 400, auth.setCookies);
-      const rows = await rest<any[]>(cfg, auth.token, `${where}&select=${LIST}`, { method: "PATCH", headers: { prefer: "return=representation" }, body: JSON.stringify({ name }) }, deps.fetch);
+      const patch: Record<string, unknown> = {};
+      if (body?.name !== undefined) {
+        const name = String(body.name ?? "").replace(/\s+/g, " ").trim().slice(0, 120);
+        if (!name) return json({ error: "Give the deck a name." }, 400, auth.setCookies);
+        patch.name = name;
+      }
+      if (typeof body?.hidden === "boolean") patch.hidden = body.hidden;
+      if (body?.description !== undefined) patch.description = cleanText(body.description, TEXT_LIMITS.description, true);
+      if (!Object.keys(patch).length) return json({ error: "Nothing to change." }, 400, auth.setCookies);
+      const rows = await withColumns((list) => rest<any[]>(cfg, auth.token, `${where}&select=${list}`, { method: "PATCH", headers: { prefer: "return=representation" }, body: JSON.stringify(patch) }, deps.fetch));
       if (!rows.length) return json({ error: "Unknown deck." }, 404, auth.setCookies);
       return json({ deck: toCloud(rows[0]) }, 200, auth.setCookies);
     }

@@ -3,45 +3,21 @@
 // ones in this browser there), otherwise the ones kept in this browser. Each deck can be opened,
 // shared, improved by Claude, built again from the same seeds, renamed and deleted.
 import { useEffect, useMemo, useState } from "react";
-import { cardByName, handoff, myDecks, resolveDeck, saveAfterLogin, type SavedDeck } from "../lib/client/api";
+import { handoff, myDecks, resolveDeck, saveAfterLogin, type SavedDeck } from "../lib/client/api";
 import { cloudDecks, useAccount } from "../lib/client/account";
+import { useMyProfile } from "../lib/client/community";
+import { deckPath } from "../lib/shared/community";
 import type { Deck } from "../lib/shared/types";
 import { modelInfo } from "../lib/shared/models";
 import { deckSeeds } from "../lib/shared/deck-utils";
 import { encodeDeck } from "../lib/shared/share";
 import { IdentityPips } from "./CardFace";
+import { commanderArt } from "../lib/client/card-art";
 import { LoginDialog } from "./LoginDialog";
 import { Menu } from "./Menu";
 import { ShareSheet } from "./ShareSheet";
 import { SiteFooter } from "./SiteFooter";
 import { SiteHeader } from "./SiteHeader";
-
-// commander art for the cards: looked up once per name and kept for this tab
-const art = new Map<string, Promise<string | null>>();
-function commanderArt(name: string): Promise<string | null> {
-  const key = `hundredfold:art:${name}`;
-  if (!art.has(name)) {
-    let cached: string | null = null;
-    try {
-      cached = sessionStorage.getItem(key);
-    } catch {}
-    art.set(
-      name,
-      cached
-        ? Promise.resolve(cached || null)
-        : cardByName(name)
-            .then((c) => {
-              const url = c.artCrop ?? null;
-              try {
-                sessionStorage.setItem(key, url ?? "");
-              } catch {}
-              return url;
-            })
-            .catch(() => null),
-    );
-  }
-  return art.get(name)!;
-}
 
 function made(at: number): string {
   const days = Math.floor((Date.now() - at) / 86_400_000);
@@ -57,6 +33,8 @@ type Sort = "new" | "name";
 export default function DecksPage() {
   const acct = useAccount();
   const signedIn = !!acct.user;
+  // with a profile, account decks show on it unless hidden
+  const profile = useMyProfile();
   const [local, setLocal] = useState<SavedDeck[]>([]);
   const [cloud, setCloud] = useState<SavedDeck[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -214,7 +192,7 @@ export default function DecksPage() {
                 ))
               : null}
             {list.map((d) => (
-              <DeckCardItem key={d.id} deck={d} onChange={(patch) => update(d, patch)} onError={setError} />
+              <DeckCardItem key={d.id} deck={d} handle={d.cloud ? (profile?.handle ?? null) : null} onChange={(patch) => update(d, patch)} onError={setError} />
             ))}
           </ul>
           {query && !list.length && total ? <p className="decks-sub">No deck matches &ldquo;{query}&rdquo;.</p> : null}
@@ -241,7 +219,7 @@ function SaveIntent({ ids }: { ids: string[] }) {
   return null;
 }
 
-function DeckCardItem({ deck: d, onChange, onError }: { deck: SavedDeck; onChange: (patch: Partial<SavedDeck> | null) => void; onError: (m: string | null) => void }) {
+function DeckCardItem({ deck: d, handle, onChange, onError }: { deck: SavedDeck; handle: string | null; onChange: (patch: Partial<SavedDeck> | null) => void; onError: (m: string | null) => void }) {
   const [bg, setBg] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -309,6 +287,14 @@ function DeckCardItem({ deck: d, onChange, onError }: { deck: SavedDeck; onChang
       onError((e as Error).message);
     }
   };
+  const setHidden = async (hidden: boolean) => {
+    try {
+      await cloudDecks.update(d.id, { hidden });
+      onChange({ hidden });
+    } catch (e) {
+      onError((e as Error).message);
+    }
+  };
   const remove = async () => {
     try {
       if (d.cloud) await cloudDecks.remove(d.id);
@@ -354,6 +340,7 @@ function DeckCardItem({ deck: d, onChange, onError }: { deck: SavedDeck; onChang
         <p className="deckcard-meta">
           {made(d.at)}
           {d.model ? ` · ${modelInfo(d.model)?.label.replace("Claude ", "") ?? d.model}` : ""}
+          {handle ? (d.hidden ? " · Hidden from your profile" : ` · On your profile${d.likes ? ` · ${d.likes} like${d.likes === 1 ? "" : "s"}` : ""}`) : ""}
         </p>
         {confirmDelete ? (
           <div className="deckcard-confirm" role="group" aria-label="Delete this deck?">
@@ -381,6 +368,8 @@ function DeckCardItem({ deck: d, onChange, onError }: { deck: SavedDeck; onChang
                 { label: "Improve it with Claude (up to 10 swaps)", onClick: () => void go("upgrade"), testId: "deck-upgrade" },
                 { label: "Edit it in the workshop", onClick: () => void go("edit"), testId: "deck-edit" },
                 ...(seeds !== false ? [{ label: "Build again from the same seeds", onClick: () => void go("rebuild"), testId: "deck-rebuild" }] : []),
+                ...(handle && !d.hidden ? [{ label: "Open its public page", onClick: () => void (window.location.href = deckPath(handle, d.id)), testId: "deck-public" }] : []),
+                ...(handle ? [{ label: d.hidden ? "Show on my profile" : "Hide from my profile", onClick: () => void setHidden(!d.hidden), testId: "deck-hide" }] : []),
                 { label: "Rename", onClick: () => setRenaming(d.name) },
                 { label: "Delete", onClick: () => setConfirmDelete(true), testId: "deck-delete" },
               ]}
