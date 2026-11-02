@@ -40,6 +40,8 @@ interface Result {
   free?: boolean;
   /** Upgrade mode: the swaps Claude made to the user's deck. */
   swaps?: Swap[];
+  /** The swaps panel was closed with Done (the "New" marks stay). */
+  swapsDone?: boolean;
   /** Where this deck is saved in My decks, if it is (checked again when it's shown later). */
   saved?: { where: "account" | "browser"; id?: string };
   /** Shown from an uploaded decklist (not built): what a Claude review would start from, and its combos. */
@@ -445,6 +447,17 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
       return (await cloudDecks.list()).some((x) => x.id === s.id) ? "account" : "unsaved";
     } catch {
       return "account"; // can't check right now: trust what we knew
+    }
+  };
+
+  /** Done with the swaps panel: close it, here and in "Your last deck" (a reload keeps it closed too). */
+  const swapsDone = () => {
+    setResult((cur) => (cur ? { ...cur, swapsDone: true } : cur));
+    const last = lastDeck.get();
+    if (result && last && last.deck.name === result.deck.name && last.deck.commander.name === result.deck.commander.name) {
+      const next = { ...last, swapsDone: true };
+      lastDeck.set(next);
+      setSaved(next);
     }
   };
 
@@ -970,7 +983,7 @@ export default function App({ opening: openingAtLoad = null, info = null }: { op
 
       {phase === "result" && result ? (
         <main>
-          {result.swaps ? <UpgradeSummary swaps={result.swaps} /> : null}
+          {result.swaps && !result.swapsDone ? <UpgradeSummary swaps={result.swaps} onDone={swapsDone} /> : null}
           <DeckView
             deck={result.deck}
             validation={result.validation}

@@ -1,9 +1,10 @@
 "use client";
-// Upgrade mode: the swaps Claude suggests for the user's deck, above the upgraded deck.
+// Upgrade mode: the swaps Claude suggests for the user's deck, above the upgraded deck. Done closes
+// it (the page remembers); the swapped-in cards keep their "New" mark in the deck.
 import { useState } from "react";
 import type { Swap } from "../lib/shared/types";
 
-export function UpgradeSummary({ swaps }: { swaps: Swap[] }) {
+export function UpgradeSummary({ swaps, onDone }: { swaps: Swap[]; onDone: () => void }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     const text = swaps.map((s) => `- ${s.out} → + ${s.in}${s.why ? ` (${s.why})` : ""}`).join("\n");
@@ -19,11 +20,16 @@ export function UpgradeSummary({ swaps }: { swaps: Swap[] }) {
     <section className="panel upgrade" aria-label="Suggested upgrades" data-testid="upgrade-summary">
       <div className="panel-head">
         <h3>{swaps.length ? `${swaps.length} suggested swap${swaps.length === 1 ? "" : "s"}` : "No swaps suggested"}</h3>
-        {swaps.length ? (
-          <button type="button" className="btn btn--quiet" onClick={copy}>
-            {copied ? "Copied" : "Copy the swaps"}
+        <div className="upgrade-actions">
+          {swaps.length ? (
+            <button type="button" className="btn btn--quiet" onClick={copy}>
+              {copied ? "Copied" : "Copy the swaps"}
+            </button>
+          ) : null}
+          <button type="button" className="btn" onClick={onDone} data-testid="upgrade-done">
+            Done
           </button>
-        ) : null}
+        </div>
       </div>
       {swaps.length ? (
         <>

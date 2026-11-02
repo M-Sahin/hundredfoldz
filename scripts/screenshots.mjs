@@ -413,6 +413,15 @@ await run("22-upgrade-my-deck", { width: 1440, height: 1000 }, async (p) => {
   console.log(`upgrade request: mode ${sent?.mode}, ${sent?.seeds?.length} cards, commander ${sent?.commander}, basics ${JSON.stringify(sent?.basics)}; swaps shown: ${swaps.map((s) => s.replace(/\s+/g, " ")).join(" | ")}; ${marked} card(s) marked New`);
   if (sent?.mode !== "upgrade" || !/Judith/.test(sent?.commander ?? "")) errors.push(`upgrade request looked wrong: ${JSON.stringify(sent)?.slice(0, 200)}`);
   if (swaps.length !== 1 || marked !== 1) errors.push(`upgrade view: ${swaps.length} swaps, ${marked} marked New`);
+  // Done closes the swaps (the New mark stays), and a reload keeps them closed
+  await p.screenshot({ path: `${out}/22a-upgrade-swaps.png`, fullPage: true });
+  await p.click("[data-testid=upgrade-done]");
+  if (await p.locator("[data-testid=upgrade-summary]").count()) errors.push("the swaps stayed after Done");
+  if ((await p.locator(".tile-new").count()) !== 1) errors.push("the New mark went with the swaps");
+  await p.reload({ waitUntil: "networkidle" });
+  await p.waitForSelector(".deck.playmat", { timeout: 30000 }).catch(() => errors.push("no deck after reloading the upgrade"));
+  if (await p.locator("[data-testid=upgrade-summary]").count()) errors.push("the swaps came back after a reload");
+  console.log("upgrade: Done closes the swaps and a reload keeps them closed");
 });
 // "Show my deck": an uploaded list opens in the deck view, on its Review tab, with the free analysis
 // and the offer to have Claude review it (no key needed for the first part)
