@@ -2239,6 +2239,12 @@ select.field option {
 .seg--four {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
+.upgrade-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
 .upgrade {
   margin-bottom: 24px;
 }
