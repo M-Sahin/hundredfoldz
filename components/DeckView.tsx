@@ -525,7 +525,8 @@ function sentence(words: string[], cap = true) {
   return w.length < 2 ? w[0] : `${w.slice(0, -1).join(", ")} and ${w[w.length - 1]}`;
 }
 
-export function HandTab({ deck, onOpen }: { deck: Deck; onOpen: (c: DeckCard) => void }) {
+/** Sample hands from the deck itself. intro: a line above the buttons (the workshop says what it is, and where new cards come from). */
+export function HandTab({ deck, onOpen, intro }: { deck: Deck; onOpen: (c: DeckCard) => void; intro?: ReactNode }) {
   const lib = useMemo(() => library(deck), [deck]);
   const [order, setOrder] = useState(() => shuffle(lib));
   const [drawn, setDrawn] = useState(7);
@@ -539,6 +540,7 @@ export function HandTab({ deck, onOpen }: { deck: Deck; onOpen: (c: DeckCard) =>
   };
   return (
     <div className="handtab">
+      {intro ? <p className="handtab-intro">{intro}</p> : null}
       <div className="handtab-bar">
         <button type="button" className="btn btn--brass" onClick={newHand}>
           Draw a new hand

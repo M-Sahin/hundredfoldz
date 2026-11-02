@@ -322,6 +322,15 @@ export default function Workshop() {
     window.location.href = `/?opening=${step.kind}&name=${encodeURIComponent(deck.name)}`;
   };
 
+  // from the deck's hand tab to where new cards come from: the pane (on a phone), scrolled into view
+  const jumpTo = (p: Pane, target: string, focus?: string) => {
+    setPane(p);
+    requestAnimationFrame(() => {
+      document.querySelector(target)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (focus) document.querySelector<HTMLElement>(focus)?.focus({ preventScroll: true });
+    });
+  };
+
   const findFor = (key: Check["key"]) => {
     setSlot(CHECK_SLOT[key]);
     setPane("search");
@@ -576,7 +585,15 @@ export default function Workshop() {
               />
             )}
           />
-          <DeckPane ws={ws} onRemove={remove} onOpen={setOpen} onBasics={() => void addBasics()} onStartOver={startOver} />
+          <DeckPane
+            ws={ws}
+            onRemove={remove}
+            onOpen={setOpen}
+            onBasics={() => void addBasics()}
+            onStartOver={startOver}
+            onDeal={() => jumpTo("checks", "[data-testid=ws-deal]")}
+            onFind={() => jumpTo("search", ".ws-pane[data-pane=search]", "[data-testid=ws-q]")}
+          />
           <aside className="ws-pane ws-checks" data-pane="checks" aria-labelledby="ws-checks-h">
             <section className="panel ws-checks-panel">
               <h2 id="ws-checks-h">How the deck is doing</h2>
@@ -971,7 +988,24 @@ function SearchPane({
   );
 }
 
-function DeckPane({ ws, onRemove, onOpen, onBasics, onStartOver }: { ws: WorkshopDeck; onRemove: (name: string) => void; onOpen: (c: DeckCard) => void; onBasics: () => void; onStartOver: () => void }) {
+function DeckPane({
+  ws,
+  onRemove,
+  onOpen,
+  onBasics,
+  onStartOver,
+  onDeal,
+  onFind,
+}: {
+  ws: WorkshopDeck;
+  onRemove: (name: string) => void;
+  onOpen: (c: DeckCard) => void;
+  onBasics: () => void;
+  onStartOver: () => void;
+  /** where new cards come from, linked from the hand tab */
+  onDeal: () => void;
+  onFind: () => void;
+}) {
   const peek = useCardPeek();
   const [tab, setTab] = useState<DeckTab>("list");
   const [sure, setSure] = useState(false);
@@ -988,7 +1022,7 @@ function DeckPane({ ws, onRemove, onOpen, onBasics, onStartOver }: { ws: Worksho
           [
             ["list", "Deck"],
             ["numbers", "Numbers"],
-            ["hand", "Draw a hand"],
+            ["hand", "Test a hand"],
           ] as [DeckTab, string][]
         ).map(([t, label]) => (
           <button key={t} role="tab" type="button" aria-selected={tab === t} className={`tab ${tab === t ? "is-on" : ""}`} onClick={() => setTab(t)} data-testid={`ws-deck-${t}`}>
@@ -1053,7 +1087,29 @@ function DeckPane({ ws, onRemove, onOpen, onBasics, onStartOver }: { ws: Worksho
         </>
       ) : null}
       {tab === "numbers" ? cards >= 20 ? <NumbersTab deck={deck} openers={openers} /> : <p className="note">The numbers start to mean something at about 20 cards.</p> : null}
-      {tab === "hand" ? cards >= 8 ? <HandTab deck={deck} onOpen={onOpen} /> : <p className="note">Add a few more cards to draw a hand.</p> : null}
+      {tab === "hand" ? (
+        cards >= 8 ? (
+          <HandTab
+            deck={deck}
+            onOpen={onOpen}
+            intro={
+              <>
+                Seven random cards from your deck, like the start of a game. Looking for new cards?{" "}
+                <button type="button" className="link" onClick={onDeal} data-testid="ws-hand-deal">
+                  Deal me 3
+                </button>{" "}
+                or{" "}
+                <button type="button" className="link" onClick={onFind} data-testid="ws-hand-find">
+                  search for them
+                </button>
+                .
+              </>
+            }
+          />
+        ) : (
+          <p className="note">Add a few more cards to test a hand: seven random cards from your deck, like the start of a game.</p>
+        )
+      ) : null}
     </section>
   );
 }

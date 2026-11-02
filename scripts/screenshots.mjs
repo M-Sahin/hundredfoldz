@@ -904,6 +904,7 @@ await run("40-phone-sweep", { width: 360, height: 740 }, async (p) => {
     await p.click("[data-testid=ws-tab-deck]");
     await p.click("[data-testid=ws-deck-numbers]");
   });
+  await step("workshop test a hand", async () => p.click("[data-testid=ws-deck-hand]"));
   await step("workshop card view", async () => {
     await p.click("[data-testid=ws-deck-list]");
     await p.locator(".ws-card-name").first().click();
