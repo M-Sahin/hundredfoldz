@@ -2,7 +2,7 @@
 // /api/decks routes (lib/server/supabase.ts does the talking to Supabase).
 import { LIMITS, clientIp, rateLimit, rateLimitAll, tooMany } from "./ratelimit";
 import { decodePayload } from "../shared/share";
-import { KEY_PATTERN, openKey, sealKey, vaultOn } from "./key-vault";
+import { KEY_PATTERN, openSealed, sealKey, vaultOn } from "./key-vault";
 import { friendlyModelError, listModels } from "./anthropic";
 import { MODEL_ID } from "../shared/models";
 import { count } from "./stats";
@@ -432,8 +432,16 @@ export async function savedKeyFor(request: Request, deps: Deps = {}): Promise<{ 
     const rows = await rest<any[]>(cfg, auth.token, "api_keys?select=sealed,model", { method: "GET" }, deps.fetch);
     const r = rows[0];
     if (!r) return null;
-    const key = await openKey(r.sealed, auth.user.id);
-    return key && KEY_PATTERN.test(key) ? { key, model: r.model ?? null, setCookies: auth.setCookies } : null;
+    const opened = await openSealed(r.sealed, auth.user.id);
+    if (!opened || !KEY_PATTERN.test(opened.key)) return null;
+    const key = opened.key;
+    // sealed with the previous secret: seal it again with the current one (best effort; it still opens either way)
+    if (opened.old) {
+      await rest(cfg, auth.token, `api_keys?user_id=eq.${auth.user.id}`, { method: "PATCH", body: JSON.stringify({ sealed: await sealKey(key, auth.user.id) }) }, deps.fetch)
+        .then(() => count("key_resealed"))
+        .catch(() => {});
+    }
+    return { key, model: r.model ?? null, setCookies: auth.setCookies };
   } catch {
     return null;
   }

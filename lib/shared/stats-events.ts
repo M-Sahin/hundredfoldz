@@ -21,6 +21,8 @@ export const SERVER_EVENTS = {
   free_refused: ["used", "ip", "site"],
   key_check: ["ok", "bad"],
   key_saved: [],
+  /** a saved key sealed again with the new KEY_ENCRYPTION_SECRET after a change of secret */
+  key_resealed: [],
   /** a "Deal me 3" in the workshop, by whose key */
   coach_deal: ["own", "saved", "free"],
   /** a deck plan in the workshop (themes to search for), by whose key */

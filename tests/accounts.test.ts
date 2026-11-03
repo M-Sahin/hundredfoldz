@@ -344,3 +344,60 @@ test("key vault: base64 of 16 bytes (openssl rand -base64 16) works", async () =
     else process.env.KEY_ENCRYPTION_SECRET = keep;
   }
 });
+
+test("key vault: a changed secret, with the old one as KEY_ENCRYPTION_SECRET_PREVIOUS, still opens saved keys and seals them again", async () => {
+  const keep = process.env.KEY_ENCRYPTION_SECRET;
+  const keepPrev = process.env.KEY_ENCRYPTION_SECRET_PREVIOUS;
+  const NEW = Buffer.alloc(32, 9).toString("base64");
+  const { openSealed } = await import("../lib/server/key-vault");
+  try {
+    process.env.KEY_ENCRYPTION_SECRET = SECRET;
+    const sealedOld = await sealKey(KEY, "u7");
+    let row: any = { sealed: sealedOld, model: "claude-sonnet-5-5" };
+    const { f, calls } = fakeSupabase((c) => {
+      if (!c.url.includes("/rest/v1/api_keys")) return undefined;
+      if (c.method === "GET") return { body: [row] };
+      if (c.method === "PATCH") {
+        row = { ...row, ...c.body };
+        return { status: 204 };
+      }
+    });
+    const cookies = { hf_at: fresh("u7") };
+
+    // the new secret alone: the old key doesn't open
+    process.env.KEY_ENCRYPTION_SECRET = NEW;
+    delete process.env.KEY_ENCRYPTION_SECRET_PREVIOUS;
+    assert.equal(await openSealed(sealedOld, "u7"), null);
+    assert.equal(await savedKeyFor(req("/api/generate", { cookies }), { config: cfg, fetch: f }), null);
+
+    // with the old one as previous: it opens, and the build seals it again with the new secret
+    process.env.KEY_ENCRYPTION_SECRET_PREVIOUS = SECRET;
+    assert.deepEqual(await openSealed(sealedOld, "u7"), { key: KEY, old: true });
+    assert.equal(await openSealed(sealedOld, "u8"), null, "still bound to its user");
+    const forBuild = await savedKeyFor(req("/api/generate", { cookies }), { config: cfg, fetch: f });
+    assert.equal(forBuild?.key, KEY);
+    const patch = calls.find((c) => c.method === "PATCH");
+    assert.ok(patch, "sealed again");
+    assert.deepEqual(Object.keys(patch!.body), ["sealed"], "only the sealed value changes");
+    assert.ok(!JSON.stringify(patch).includes(KEY), "the key isn't sent in plain text");
+    assert.notEqual(row.sealed, sealedOld);
+
+    // the previous secret can go now: the row opens with the new one alone, and isn't sealed again
+    delete process.env.KEY_ENCRYPTION_SECRET_PREVIOUS;
+    assert.deepEqual(await openSealed(row.sealed, "u7"), { key: KEY, old: false });
+    const before = calls.length;
+    assert.equal((await savedKeyFor(req("/api/generate", { cookies }), { config: cfg, fetch: f }))?.key, KEY);
+    assert.ok(calls.slice(before).every((c) => c.method !== "PATCH"));
+
+    // a key that can't be sealed again (the database refuses) still works for the build
+    process.env.KEY_ENCRYPTION_SECRET_PREVIOUS = SECRET;
+    row = { sealed: sealedOld, model: null };
+    const refusing = fakeSupabase((c) => (c.url.includes("/rest/v1/api_keys") ? (c.method === "GET" ? { body: [row] } : { status: 500, body: { message: "no" } }) : undefined));
+    assert.equal((await savedKeyFor(req("/api/generate", { cookies }), { config: cfg, fetch: refusing.f }))?.key, KEY);
+  } finally {
+    if (keep === undefined) delete process.env.KEY_ENCRYPTION_SECRET;
+    else process.env.KEY_ENCRYPTION_SECRET = keep;
+    if (keepPrev === undefined) delete process.env.KEY_ENCRYPTION_SECRET_PREVIOUS;
+    else process.env.KEY_ENCRYPTION_SECRET_PREVIOUS = keepPrev;
+  }
+});
