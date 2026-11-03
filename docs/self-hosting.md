@@ -59,7 +59,8 @@ npm ci && npm run build && npm start
 | `ANTHROPIC_MODEL` | no | Defaults to `claude-sonnet-5-5`. `claude-opus-5-5` gives stronger decks but is slower and costs more. |
 | `AFFILIATE_TCGPLAYER`, `AFFILIATE_CARDKINGDOM`, `AFFILIATE_CARDMARKET` | no | Affiliate tags for the "Buy the cards" and "Find this box" links: a link template with `{url}` where the shop link goes (what Impact gives you for TCGplayer, e.g. `https://tcgplayer.pxf.io/c/…?u={url}`), or parameters to add to the shop link (`partner=yourname`). Without them the links work, untagged. When any is set, the page says some links are affiliate links. |
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY` | no | Accounts and decks saved to them (see [Accounts](#accounts-optional)). `SUPABASE_PUBLISHABLE_KEY` and the `NEXT_PUBLIC_` names the Supabase Vercel integration sets work too. |
-| `KEY_ENCRYPTION_SECRET` | no | Lets logged-in visitors save their own Claude API key to their account. 32 random bytes, base64 (`openssl rand -base64 32`). Keys are sealed with it (AES-256-GCM, bound to the user's id), so the database alone can't reveal them. Changing it makes saved keys unreadable (people add theirs again). Needs [accounts](#accounts-optional) and the `api_keys` migration. |
+| `KEY_ENCRYPTION_SECRET` | no | Lets logged-in visitors save their own Claude API key to their account. 32 random bytes, base64 (`openssl rand -base64 32`). Keys are sealed with it (AES-256-GCM, bound to the user's id), so the database alone can't reveal them. To change it, see [Changing the key secret](#changing-the-key-secret). Needs [accounts](#accounts-optional) and the `api_keys` migration. |
+| `KEY_ENCRYPTION_SECRET_PREVIOUS` | no | The old `KEY_ENCRYPTION_SECRET` while you change it: saved keys still open with it and are sealed again with the new one as they're used. See [Changing the key secret](#changing-the-key-secret). |
 | `DEFAULT_CURRENCY` | no | `EUR` or `USD`: the prices to show when the host doesn't say which country a visitor is in (Docker, plain Node). Default `EUR`. On Vercel and behind Cloudflare it's picked per visitor: euros in Europe, dollars elsewhere. |
 | `GOOGLE_SITE_VERIFICATION`, `BING_SITE_VERIFICATION` | no | The codes Google Search Console and Bing Webmaster Tools give you to prove the site is yours (the HTML tag method: just the `content` value). See [Search engines and AI assistants](#search-engines-and-ai-assistants). |
 | `NO_INDEX` | no | Set it to `1` to keep a copy out of search engines. Vercel preview deployments are kept out anyway. |
@@ -187,13 +188,24 @@ To switch it on for your copy:
 
 9. **Profiles and public decks (optional):** run `supabase/migrations/20261102000000_profiles.sql` the same way (after the accounts one). See [Profiles](#profiles-and-public-decks) below.
 
-10. **Saved API keys (optional):** run `supabase/migrations/20261027000000_api_keys.sql` the same way and set `KEY_ENCRYPTION_SECRET` (`openssl rand -base64 32`, type Secret on Vercel), then redeploy. Logged-in visitors then get "Save it to my account" in the key sheet and on the account page. Any secret of at least 16 characters works (32 bytes of base64 are used as they are; anything else is hashed into the key). If saving doesn't show up, the server log (Vercel → Logs) says why, once per server start: `Saved API keys are off: …` (the secret is missing, or shorter than 16 characters). Don't change the secret once people have saved keys: theirs would stop opening, and they'd have to add them again.
+10. **Saved API keys (optional):** run `supabase/migrations/20261027000000_api_keys.sql` the same way and set `KEY_ENCRYPTION_SECRET` (`openssl rand -base64 32`, type Secret on Vercel), then redeploy. Logged-in visitors then get "Save it to my account" in the key sheet and on the account page. Any secret of at least 16 characters works (32 bytes of base64 are used as they are; anything else is hashed into the key). If saving doesn't show up, the server log (Vercel → Logs) says why, once per server start: `Saved API keys are off: …` (the secret is missing, or shorter than 16 characters). To change the secret later without anyone losing their saved key, see [Changing the key secret](#changing-the-key-secret).
 
 Without these settings the app works as before: no login button, decks in the browser.
 
 - **My decks** (`/decks`) lists the account's decks (or this browser's), with the commander's art, when each was made and the model. Each deck can be opened, shared, improved by Claude (up to 10 swaps), built again from its five seeds, renamed and deleted. Building needs a key or a free build, like any build.
 - **Saving is a choice.** A finished deck isn't saved until the visitor presses **Save deck**: into the account when logged in, otherwise into this browser, with "Save to my account" to move it into an account (the login dialog opens, and after logging in the deck moves over by itself). A build is still kept on the server for an hour, so closing the browser mid-build doesn't lose it.
 - **Saved API keys** are sealed by the server with AES-256-GCM (`lib/server/key-vault.ts`), with the user's id as additional data, and stored with their last four characters only. The browser never gets a saved key back: a build asks the server to use it (`x-use-saved-key`), and the server opens it for that build. Row-level security keeps each row to its owner, and deleting the account deletes the key.
+
+### Changing the key secret
+
+Change `KEY_ENCRYPTION_SECRET` when it may have leaked, or when it wasn't made with `openssl rand -base64 32` (a passphrase is hashed once, which is much weaker than 32 random bytes).
+
+1. Make a new secret: `openssl rand -base64 32`.
+2. On Vercel, set `KEY_ENCRYPTION_SECRET_PREVIOUS` to the current value of `KEY_ENCRYPTION_SECRET`, then set `KEY_ENCRYPTION_SECRET` to the new one (both type Secret), and redeploy.
+3. Saved keys keep working. Each one is sealed again with the new secret the next time its owner builds or uses card picks; `/stats` counts these under "Saved keys moved to a new secret".
+4. Leave the previous secret in place for as long as you want people's old keys to keep working. Once you remove it, a key nobody used in the meantime stops opening, and its owner is asked to add it again. If the old secret leaked, don't wait long: until a key has been sealed again, the leaked secret still opens it.
+
+Keys kept only in a visitor's browser aren't affected: they never touch the secret. Without "Remember it on this device" (off by default) the key lasts only as long as the tab.
 
 ## Profiles and public decks
 

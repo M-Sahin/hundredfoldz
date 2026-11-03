@@ -220,6 +220,7 @@ function Report({ days, store }: { days: Day[]; store: string }) {
             rows={[
               ["Login emails sent", t["login_email"]],
               ["Keys saved to an account", t["key_saved"]],
+              ["Saved keys moved to a new secret", t["key_resealed"]],
               ["Accounts deleted", t["account_deleted"]],
             ]}
           />

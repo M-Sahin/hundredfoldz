@@ -41,7 +41,7 @@ function fitModel(wanted: string, list: ModelList): string {
 
 export function KeyPanel({ value, onChange, lead, onDone, canSave = false }: { value: KeyState; onChange: (v: KeyState) => void; lead?: ReactNode; onDone?: () => void; canSave?: boolean }) {
   const [draft, setDraft] = useState("");
-  const [remember, setRemember] = useState(true);
+  const [remember, setRemember] = useState(false); // tab only unless asked: safer on a shared computer
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [models, setModels] = useState<{ id: string; name: string }[] | null>(null);
