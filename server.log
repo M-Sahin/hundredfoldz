@@ -1,0 +1,9 @@
+
+> hundredfoldz@0.1.0 start
+> next start -p 3000
+
+▲ Next.js 16.4.3
+- Local:         http://localhost:3000
+- Network:       http://10.1.0.24:3000
+✓ Ready in 127ms
+✓ Running next.config.mjs took 16ms

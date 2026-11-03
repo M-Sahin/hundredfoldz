@@ -1,0 +1,49 @@
+
+## esper-flicker--v1--1.txt: Aminatou, the Fateshifter
+Opening hands (4000 goldfished games): first 7 kept 69%, free mulligan 21%, down to 6 or fewer 10%.
+Lands in the first 7: 0: 4%, 1: 17%, 2: 29%, 3: 28%, 4: 16%, 5: 5%, 6: 1%.
+Third land on turn 3: 93%; fourth on turn 4: 79%; flooding (7+ lands in 14 cards): 26%.
+Color by turn 3: B 94%, U 94%, W 97%.
+Aminatou, the Fateshifter (MV 3): on curve 63%, by the turn after 83%.
+
+With the server's basic-land rebalance: Re-split the 20 basic lands to 7 Swamp, 7 Island, 6 Plains (was 7 Island, 7 Plains, 6 Swamp) to match colored-source needs.
+Opening hands (4000 goldfished games): first 7 kept 68%, free mulligan 22%, down to 6 or fewer 10%.
+Lands in the first 7: 0: 4%, 1: 17%, 2: 30%, 3: 28%, 4: 16%, 5: 5%, 6: 1%.
+Third land on turn 3: 93%; fourth on turn 4: 79%; flooding (7+ lands in 14 cards): 27%.
+Color by turn 3: B 95%, U 94%, W 96%.
+Aminatou, the Fateshifter (MV 3): on curve 63%, by the turn after 84%.
+
+## esper-flicker--v2--1.txt: Aminatou, the Fateshifter
+Opening hands (4000 goldfished games): first 7 kept 69%, free mulligan 22%, down to 6 or fewer 9%.
+Lands in the first 7: 0: 4%, 1: 17%, 2: 31%, 3: 29%, 4: 15%, 5: 5%, 6: 1%.
+Third land on turn 3: 92%; fourth on turn 4: 78%; flooding (7+ lands in 14 cards): 27%.
+Color by turn 3: B 94%, U 96%, W 93%.
+Aminatou, the Fateshifter (MV 3): on curve 64%, by the turn after 82%.
+
+With the server's basic-land rebalance: Re-split the 22 basic lands to 7 Swamp, 10 Island, 5 Plains (was 12 Island, 4 Plains, 6 Swamp) to match colored-source needs.
+Opening hands (4000 goldfished games): first 7 kept 69%, free mulligan 21%, down to 6 or fewer 10%.
+Lands in the first 7: 0: 3%, 1: 17%, 2: 29%, 3: 28%, 4: 17%, 5: 5%, 6: 1%.
+Third land on turn 3: 92%; fourth on turn 4: 78%; flooding (7+ lands in 14 cards): 26%.
+Color by turn 3: B 96%, U 95%, W 94%.
+Aminatou, the Fateshifter (MV 3): on curve 66%, by the turn after 84%.
+
+## judith-aristocrats--v2--1.txt: Judith, the Scourge Diva
+Opening hands (4000 goldfished games): first 7 kept 76%, free mulligan 18%, down to 6 or fewer 6%.
+Lands in the first 7: 0: 3%, 1: 15%, 2: 30%, 3: 29%, 4: 17%, 5: 5%, 6: 1%.
+Third land on turn 3: 92%; fourth on turn 4: 77%; flooding (7+ lands in 14 cards): 28%.
+Color by turn 3: B 99%, R 97%.
+Judith, the Scourge Diva (MV 3): on curve 87%, by the turn after 96%.
+
+With the server's basic-land rebalance: Re-split the 24 basic lands to 12 Swamp, 12 Mountain (was 10 Mountain, 14 Swamp) to match colored-source needs.
+Opening hands (4000 goldfished games): first 7 kept 76%, free mulligan 19%, down to 6 or fewer 6%.
+Lands in the first 7: 0: 3%, 1: 16%, 2: 29%, 3: 29%, 4: 16%, 5: 6%, 6: 1%.
+Third land on turn 3: 92%; fourth on turn 4: 77%; flooding (7+ lands in 14 cards): 27%.
+Color by turn 3: B 98%, R 98%.
+Judith, the Scourge Diva (MV 3): on curve 88%, by the turn after 96%.
+
+## krenko-goblins--v2--1.txt: Krenko, Mob Boss
+Opening hands (4000 goldfished games): first 7 kept 74%, free mulligan 19%, down to 6 or fewer 7%.
+Lands in the first 7: 0: 3%, 1: 15%, 2: 30%, 3: 29%, 4: 17%, 5: 5%, 6: 1%.
+Third land on turn 3: 93%; fourth on turn 4: 80%; flooding (7+ lands in 14 cards): 28%.
+Color by turn 3: R 100%.
+Krenko, Mob Boss (MV 4): on curve 92%, by the turn after 95%.
