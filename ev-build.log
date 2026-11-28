@@ -1,0 +1,140 @@
+sealed data: 1026 products
+products since 2020-01-01: 120
+cards to price: 33909
+  priced 75/33909 (4 s)
+  priced 3075/33909 (85 s)
+  priced 6075/33909 (167 s)
+  priced 9075/33909 (248 s)
+  priced 12075/33909 (390 s)
+  priced 15075/33909 (472 s)
+  priced 18075/33909 (553 s)
+  priced 21075/33909 (635 s)
+  priced 24075/33909 (746 s)
+  priced 27075/33909 (826 s)
+  priced 30075/33909 (907 s)
+  priced 33075/33909 (988 s)
+priced: 33909/33909; not on Scryfall: 0
+box sizes from MTGJSON: 118 (trk-collector 12, trk-play 30, fra-collector 12, fra-play 30, hob-collector 12, hob-play 30, msh-collector 12, msh-play 30, sos-collector 12, sos-play 30, tmt-collector 12, tmt-play 30, ecl-collector 12, ecl-play 30, tla-collector 12, tla-play 30, spm-collector 12, spm-play 30, eoe-collector 12, eoe-play 30, fin-collector 12, fin-play 30, tdm-collector 12, tdm-play 30, dft-collector 12, dft-play 30, inr-collector 12, inr-play 36, fdn-collector 12, fdn-play 36)
+trk-collector    gross €  377  net €  327  unpriced 0%  top: Sheoldred, the Apocalypse 3%; Godless Shrine (foil) 1%; Sheoldred, the Apocalypse (foil) 1%
+trk-play         gross €  124  net €   85  unpriced 0%  top: Anthropological Mission 4%; Deep Space 9 4%; The Naked Time 3%
+mbc-draft        gross € 1118  net €  953  unpriced 4%  top: Olinda the Oblivious 2%; Homer, the Hermit 2%; Arzakon 1%
+fra-collector    gross €  225  net €  178  unpriced 0%  top: The Theorist, Jace Beleren 3%; The Theorist, Jace Beleren (foil) 3%; Avacyn, Angel of Horror 2%
+fra-play         gross €  125  net €   72  unpriced 0%  top: The Theorist, Jace Beleren 7%; Hexhaven Invigorator 3%; Emrakul, the Exigent Doom 2%
+hob-collector    gross €  493  net €  437  unpriced 0%  top: The One Ring (foil) 4%; Mox Amber (foil) 4%; Gleaming Splendor (foil) 3%
+hob-play         gross €  102  net €   61  unpriced 0%  top: Gleaming Splendor 7%; Smaug the Magnificent 5%; The Queen of Dale 5%
+msh-collector    gross €  297  net €  250  unpriced 0%  top: The Mind Stone (foil) 7%; Doctor Doom (foil) 4%; Thanos, the Mad Titan (foil) 3%
+msh-play         gross €  113  net €   65  unpriced 0%  top: The Mind Stone 10%; Mjölnir, Hammer of Thor 3%; The Ten Rings 2%
+sos-collector    gross €  307  net €  254  unpriced 0%  top: Force of Will (foil) 5%; Force of Will 3%; Vampiric Tutor (foil) 3%
+sos-play         gross €  120  net €   70  unpriced 0%  top: Erode 4%; Force of Will 3%; Flow State 2%
+tmt-collector    gross €  233  net €  189  unpriced 0%  top: Doubling Season 4%; Shadowspear 3%; Trouble in Pairs 3%
+tmt-play         gross €   90  net €   46  unpriced 0%  top: Cool but Rude 4%; Krang, Utrom Warlord 4%; Super Shredder 4%
+ecl-collector    gross €  221  net €  173  unpriced 0%  top: Hexing Squelcher 4%; Hexing Squelcher (foil) 3%; Bitterbloom Bearer (foil) 2%
+ecl-play         gross €  141  net €   87  unpriced 0%  top: Hexing Squelcher 7%; Moonshadow 4%; Formidable Speaker 4%
+tla-collector    gross €  386  net €  330  unpriced 0%  top: Avatar Aang // Aang, Master of Elements (foil) 5%; Toph, the First Metalbender (foil) 4%; Aang, Swift Savior // Aang and La, Ocean's Fury (foil) 2%
+tla-play         gross €  153  net €   97  unpriced 0%  top: Badgermole Cub 8%; Wan Shi Tong, Librarian 6%; Redirect Lightning 4%
+spm-collector    gross €  249  net €  207  unpriced 0%  top: The Soul Stone (foil) 9%; Eddie Brock // Venom, Lethal Protector (foil) 5%; The Soul Stone (foil) 4%
+spm-play         gross €  108  net €   61  unpriced 0%  top: The Soul Stone 20%; Multiversal Passage 5%; Norman Osborn // Green Goblin 3%
+eoe-collector    gross €  417  net €  365  unpriced 0%  top: Sothera, the Supervoid (foil) 7%; Ancient Tomb 2%; Tezzeret, Cruel Captain (foil) 2%
+eoe-play         gross €  201  net €  144  unpriced 0%  top: Icetill Explorer 6%; Quantum Riddler 5%; Ouroboroid 4%
+fin-collector    gross € 1019  net €  931  unpriced 0%  top: Traveling Chocobo (foil) 10%; Traveling Chocobo (foil) 5%; Y'shtola, Night's Blessed (foil) 4%
+fin-play         gross €  197  net €  143  unpriced 0%  top: Buster Sword 3%; Vivi Ornitier 3%; Summon: Bahamut 3%
+tdm-collector    gross €  354  net €  301  unpriced 0%  top: Misty Rainforest (foil) 4%; Scalding Tarn (foil) 4%; Ugin, Eye of the Storms (foil) 3%
+tdm-play         gross €  141  net €   90  unpriced 0%  top: Ugin, Eye of the Storms 7%; Elspeth, Storm Slayer 6%; Voice of Victory 6%
+dft-collector    gross €  158  net €  116  unpriced 0%  top: Chrome Mox (foil) 7%; Riverpyre Verge 5%; Monument to Endurance 4%
+dft-play         gross €  121  net €   68  unpriced 0%  top: Monument to Endurance 7%; Riverpyre Verge 6%; Chrome Mox 5%
+inr-collector    gross €  292  net €  242  unpriced 0%  top: Dauntless Cathar (foil) 2%; Craterhoof Behemoth 2%; Avacyn, Angel of Hope 2%
+inr-play         gross €  213  net €  134  unpriced 0%  top: Edgar Markov 3%; The Meathook Massacre 3%; Emrakul, the Promised End 3%
+fdn-collector    gross €  422  net €  369  unpriced 0%  top: Doubling Season (foil) 5%; Llanowar Elves (foil) 4%; Twinflame Tyrant (foil) 2%
+fdn-play         gross €  185  net €  118  unpriced 0%  top: Bloodthirsty Conqueror 4%; Doubling Season 4%; Twinflame Tyrant 3%
+dsk-collector    gross €  289  net €  240  unpriced 0%  top: Valgavoth, Terror Eater (foil) 3%; Overlord of the Balemurk (foil) 2%; Persistent Constrictor 2%
+dsk-play         gross €  182  net €  120  unpriced 0%  top: Untimely Malfunction 4%; Enduring Tenacity 4%; Overlord of the Balemurk 3%
+blb-collector    gross €  510  net €  451  unpriced 0%  top: Ms. Bumbleflower (foil) 4%; Baylen, the Haymaker (foil) 3%; Lumra, Bellow of the Woods (foil) 2%
+blb-play         gross €  224  net €  146  unpriced 0%  top: Three Tree City 4%; Caretaker's Talent 3%; Lumra, Bellow of the Woods 2%
+mb2-draft        gross €  353  net €  272  unpriced 0%  top: Urza's Saga 2%; Displacer Kitten 2%; Wasteland 1%
+acr-collector    gross €  242  net €  209  unpriced 20%  top: Black Market Connections 6%; Ezio Auditore da Firenze (foil) 5%; Leonardo da Vinci (foil) 4%
+mh3-collector    gross €  546  net €  485  unpriced 2%  top: Esper Sentinel 2%; Esper Sentinel (foil) 2%; Solitude 1%
+mh3-play         gross €  373  net €  283  unpriced 0%  top: Ocelot Pride 3%; Polluted Delta 2%; Sink into Stupor // Soporific Springs 2%
+otj-collector    gross €  281  net €  236  unpriced 0%  top: Mana Drain 3%; Scapeshift (foil) 2%; Vaultborn Tyrant 2%
+otj-play         gross €  219  net €  146  unpriced 0%  top: Mana Drain 5%; Terror of the Peaks 4%; Vaultborn Tyrant 3%
+pip-collector    gross €  759  net €  686  unpriced 0%  top: Sol Ring (foil) 1%; Wasteland 1%; Nuka-Cola Vending Machine (foil) 1%
+mkm-collector    gross €  300  net €  253  unpriced 1%  top: Teysa, Opulent Oligarch (foil) 4%; Vannifar, Evolved Enigma (foil) 4%; Aurelia, the Law Above (foil) 3%
+mkm-play         gross €  197  net €  134  unpriced 0%  top: Undercity Sewers 5%; Underground Mortuary 4%; Thundering Falls 4%
+rvr-collector    gross €  612  net €  550  unpriced 0%  top: Watery Grave (foil) 2%; Watery Grave 2%; Godless Shrine (foil) 2%
+rvr-draft        gross €  258  net €  182  unpriced 0%  top: Nicol Bolas, Dragon-God 2%; Cyclonic Rift 2%; Bruvac the Grandiloquent 2%
+lci-collector    gross €  432  net €  374  unpriced 0%  top: Roaming Throne 3%; Hunting Velociraptor 3%; Underworld Breach (foil) 2%
+lci-draft        gross €  170  net €  106  unpriced 0%  top: Roaming Throne 7%; Cavern of Souls 5%; Fanatical Offering 4%
+lci-set          gross €  201  net €  146  unpriced 0%  top: Roaming Throne 9%; Cavern of Souls 5%; Ghalta, Stampede Tyrant 3%
+who-collector    gross €  431  net €  360  unpriced 0%  top: Cyberman Patrol (foil) 2%; Cyberman Patrol 1%; The Tenth Doctor (foil) 1%
+woe-collector    gross €  375  net €  319  unpriced 0%  top: Smothering Tithe (foil) 4%; Rhystic Study (foil) 4%; Rhystic Study (foil) 2%
+woe-draft        gross €  274  net €  190  unpriced 0%  top: Rhystic Study 4%; Agatha's Soul Cauldron 3%; Smothering Tithe 3%
+woe-set          gross €  282  net €  213  unpriced 0%  top: Rhystic Study 4%; Agatha's Soul Cauldron 3%; Smothering Tithe 3%
+cmm-collector    gross €  294  net €  267  unpriced 7%  top: Deflecting Swat (foil) 5%; Deflecting Swat 4%; Fierce Guardianship (foil) 4%
+cmm-draft        gross €  527  net €  428  unpriced 0%  top: Deflecting Swat 3%; Ashnod's Altar 3%; Deflecting Swat 3%
+cmm-set          gross €  554  net €  461  unpriced 0%  top: Deflecting Swat 5%; Fierce Guardianship 4%; Demonic Tutor 2%
+ltr-collector    gross €  696  net €  622  unpriced 0%  top: Sol Ring 5%; Sol Ring 4%; Ancient Tomb 4%
+ltr-draft        gross €  282  net €  203  unpriced 0%  top: The One Ring 7%; Lórien Revealed 5%; Orcish Bowmasters 5%
+ltr-set          gross €  276  net €  209  unpriced 0%  top: The One Ring 10%; Orcish Bowmasters 6%; Delighted Halfling 4%
+mat-collector    gross €  131  net €  113  unpriced 33%  top: Nissa, Resurgent Animist (foil) 3%; Nissa, Resurgent Animist (foil) 3%; Nissa, Resurgent Animist 3%
+mom-collector    gross €  328  net €  277  unpriced 6%  top: Elesh Norn // The Argent Etchings (foil) 7%; Sheoldred // The True Scriptures (foil) 6%; Jin-Gitaxias // The Great Synthesis (foil) 4%
+mom-draft        gross €  188  net €  119  unpriced 0%  top: Ragavan, Nimble Pilferer 5%; Etali, Primal Conqueror // Etali, Primal Sickness 4%; Tribute to the World Tree 3%
+mom-set          gross €  187  net €  133  unpriced 0%  top: Etali, Primal Conqueror // Etali, Primal Sickness 5%; Ragavan, Nimble Pilferer 5%; Tribute to the World Tree 3%
+one-collector    gross €  324  net €  272  unpriced 0%  top: Sheoldred, the Apocalypse 6%; Sheoldred, the Apocalypse (foil) 5%; Sheoldred, the Apocalypse (foil) 4%
+one-draft        gross €  180  net €  109  unpriced 0%  top: Sheoldred, the Apocalypse 9%; Vorinclex, Monstrous Raider 3%; Ichormoon Gauntlet 3%
+one-set          gross €  196  net €  137  unpriced 0%  top: Sheoldred, the Apocalypse 9%; Vorinclex, Monstrous Raider 3%; Ichormoon Gauntlet 3%
+dmr-collector    gross €  431  net €  375  unpriced 0%  top: Enlightened Tutor 3%; Force of Will 2%; Vampiric Tutor 2%
+dmr-draft        gross €  302  net €  217  unpriced 0%  top: Snap 4%; Exploration 3%; Force of Will 3%
+30a-draft        gross € 8654  net € 8079  unpriced 1%  top: Black Lotus 8%; Black Lotus 8%; Timetwister 2%
+bro-collector    gross €  278  net €  226  unpriced 0%  top: Urza's Workshop 3%; Mox Amber (foil) 3%; Mox Amber 2%
+bro-draft        gross €  195  net €  120  unpriced 0%  top: Portal to Phyrexia 6%; Mox Amber 5%; Loran's Escape 4%
+bro-set          gross €  202  net €  139  unpriced 0%  top: Portal to Phyrexia 5%; Mox Amber 5%; Diabolic Intent 3%
+unf-collector    gross €  255  net €  211  unpriced 7%  top: Godless Shrine (foil) 4%; Clown Car (foil) 3%; Plains (foil) 3%
+unf-draft        gross €  233  net €  146  unpriced 0%  top: Clown Car 4%; Clowning Around 4%; Mountain 3%
+dmu-collector    gross €  238  net €  194  unpriced 8%  top: Sheoldred, the Apocalypse 7%; Sheoldred, the Apocalypse 7%; Sheoldred, the Apocalypse (foil) 6%
+dmu-draft        gross €  139  net €   74  unpriced 0%  top: Sheoldred, the Apocalypse 11%; Cut Down 6%; Sheoldred, the Apocalypse 3%
+dmu-set          gross €  151  net €   99  unpriced 0%  top: Sheoldred, the Apocalypse 14%; Cut Down 5%; Plaza of Heroes 2%
+2x2-collector    gross €  240  net €  217  unpriced 7%  top: Mana Vault (foil) 4%; Imperial Seal (foil) 4%; Smothering Tithe (foil) 3%
+2x2-draft        gross €  420  net €  346  unpriced 0%  top: Imperial Seal 4%; Force of Negation 4%; Smothering Tithe 3%
+clb-collector    gross €  569  net €  508  unpriced 13%  top: Ancient Copper Dragon 4%; Ancient Copper Dragon (foil) 4%; Ancient Copper Dragon 3%
+clb-draft        gross €  381  net €  285  unpriced 0%  top: Avenging Hunter 5%; Ancient Copper Dragon 4%; Displacer Kitten 4%
+clb-set          gross €  239  net €  186  unpriced 7%  top: Ancient Copper Dragon 6%; Displacer Kitten 3%; Morphic Pool 3%
+snc-collector    gross €  189  net €  146  unpriced 0%  top: Waterfront District (foil) 6%; Ledger Shredder 2%; Raffine's Tower 2%
+snc-draft        gross €  138  net €   75  unpriced 0%  top: Slip Out the Back 4%; Jetmir's Garden 3%; An Offer You Can't Refuse 3%
+snc-set          gross €  145  net €   94  unpriced 0%  top: Jetmir's Garden 5%; Raffine's Tower 5%; Spara's Headquarters 4%
+neo-collector    gross €  284  net €  238  unpriced 0%  top: Boseiju, Who Endures (foil) 4%; Boseiju, Who Endures 3%; Boseiju, Who Endures (foil) 3%
+neo-draft        gross €  206  net €  137  unpriced 0%  top: Boseiju, Who Endures 8%; Tamiyo's Safekeeping 7%; Otawara, Soaring City 5%
+neo-set          gross €  222  net €  167  unpriced 0%  top: Boseiju, Who Endures 10%; Otawara, Soaring City 6%; Tamiyo's Safekeeping 2%
+dbl-draft        gross €  175  net €  107  unpriced 0%  top: Kessig Flamebreather 3%; The Meathook Massacre 2%; Toxrill, the Corrosive 2%
+vow-collector    gross €  155  net €  109  unpriced 0%  top: Edgar, Charmed Groom // Edgar Markov's Coffin 3%; Olivia, Crimson Bride 2%; Hollowhenge Overlord 2%
+vow-draft        gross €  139  net €   63  unpriced 0%  top: Kessig Flamebreather 10%; End the Festivities 4%; Reckless Impulse 3%
+vow-set          gross €  148  net €   87  unpriced 0%  top: Kessig Flamebreather 4%; Toxrill, the Corrosive 3%; Ancient Tomb 2%
+mid-collector    gross €  133  net €   89  unpriced 0%  top: The Meathook Massacre 3%; Wilhelt, the Rotcleaver 2%; Hordewing Skaab 2%
+mid-draft        gross €  109  net €   39  unpriced 0%  top: The Meathook Massacre 6%; Swamp 5%; Swamp 2%
+mid-set          gross €  130  net €   71  unpriced 0%  top: The Meathook Massacre 4%; Swamp 3%; Ancient Tomb 2%
+afr-collector    gross €  250  net €  200  unpriced 0%  top: Old Gnawbone 5%; Old Gnawbone (foil) 3%; Circle of Dreams Druid 3%
+afr-draft        gross €  178  net €  111  unpriced 0%  top: Unexpected Windfall 6%; Old Gnawbone 4%; Circle of Dreams Druid 4%
+afr-set          gross €  180  net €  124  unpriced 0%  top: Old Gnawbone 6%; Xorn 4%; Circle of Dreams Druid 4%
+mh2-collector    gross €  501  net €  440  unpriced 0%  top: Force of Negation (foil) 8%; Prismatic Vista (foil) 4%; Scalding Tarn (foil) 3%
+mh2-draft        gross €  300  net €  220  unpriced 0%  top: Urza's Saga 6%; Esper Sentinel 6%; Scalding Tarn 4%
+mh2-set          gross €  338  net €  271  unpriced 0%  top: Urza's Saga 3%; Esper Sentinel 3%; Solitude 3%
+stx-collector    gross €  524  net €  463  unpriced 0%  top: Demonic Tutor (foil) 16%; Dark Ritual (foil) 4%; Tainted Pact (foil) 4%
+stx-draft        gross €  146  net €   77  unpriced 0%  top: Demonic Tutor 6%; Teferi's Protection 4%; Wandering Archaic // Explore the Vastlands 3%
+stx-set          gross €  153  net €   96  unpriced 0%  top: Demonic Tutor 5%; Teferi's Protection 4%; Tainted Pact 3%
+tsr-draft        gross €  340  net €  251  unpriced 0%  top: Urborg, Tomb of Yawgmoth 6%; Gemstone Caverns 4%; Yawgmoth, Thran Physician 3%
+khm-collector    gross €  270  net €  215  unpriced 0%  top: Birgi, God of Storytelling // Harnfel, Horn of Bounty 5%; Birgi, God of Storytelling // Harnfel, Horn of Bounty (foil) 3%; Tergrid, God of Fright // Tergrid's Lantern 3%
+khm-draft        gross €  193  net €  112  unpriced 0%  top: Masked Vandal 5%; Birgi, God of Storytelling // Harnfel, Horn of Bounty 4%; Vorinclex, Monstrous Raider 3%
+khm-set          gross €  212  net €  138  unpriced 0%  top: Birgi, God of Storytelling // Harnfel, Horn of Bounty 3%; Vorinclex, Monstrous Raider 3%; Volatile Fjord 2%
+cmr-collector    gross €  329  net €  282  unpriced 20%  top: Jeska's Will 2%; Jeweled Lotus 2%; Mana Drain 2%
+cmr-draft        gross €  250  net €  179  unpriced 0%  top: Jeska's Will 6%; Mana Drain 4%; Opposition Agent 4%
+znr-collector    gross €  284  net €  239  unpriced 0%  top: Ancient Tomb (foil) 5%; Sea Gate Restoration // Sea Gate, Reborn 2%; Scute Swarm 2%
+znr-draft        gross €  159  net €  102  unpriced 0%  top: Malakir Rebirth // Malakir Mire 11%; Bala Ged Recovery // Bala Ged Sanctuary 5%; Sea Gate Restoration // Sea Gate, Reborn 4%
+znr-set          gross €  187  net €  136  unpriced 0%  top: Malakir Rebirth // Malakir Mire 10%; Bala Ged Recovery // Bala Ged Sanctuary 4%; Sea Gate Restoration // Sea Gate, Reborn 4%
+2xm-draft        gross €  416  net €  341  unpriced 0%  top: Mox Opal 7%; Chrome Mox 5%; Exploration 2%
+m21-collector    gross €  249  net €  196  unpriced 0%  top: Ugin, the Spirit Dragon 3%; Ugin, the Spirit Dragon 3%; Grim Tutor 3%
+m21-draft        gross €  135  net €   71  unpriced 0%  top: Terror of the Peaks 6%; Heroic Intervention 6%; Chromatic Orrery 4%
+iko-collector    gross €  380  net €  326  unpriced 0%  top: Zagoth Triome 4%; Indatha Triome 4%; The Ozolith 4%
+iko-draft        gross €  176  net €  104  unpriced 0%  top: The Ozolith 14%; Zagoth Triome 4%; Drannith Magistrate 4%
+thb-collector    gross €  196  net €  155  unpriced 0%  top: Mountain (foil) 5%; Swamp (foil) 5%; Shadowspear 4%
+thb-draft        gross €  155  net €   72  unpriced 0%  top: Shadowspear 9%; Thassa's Oracle 6%; Island 4%
+Card Kingdom: https://api.cardkingdom.com/api/v2/pricelist, 155033 rows; first: {"id":10000,"sku":"4ED-117","scryfall_id":"a363bc91-8278-448e-9d5c-564e4b51eb62","url":"mtg/4th-edition/abomination","name":"Abomination","variation":"","edition":"4th Edition","is_foil":"false","price_retail":"0.35","qty_retail":24,"price_buy":"0.01","qty_buying":0,"condition_values":{"nm_price":"0.35","nm_qty":3,"ex_price":"0.28","ex_qty":12,"vg_price":"0.25","vg_qty":8,"g_price":"0.18","g_qty":
+Card Kingdom prices: 34644 cards
+wrote 120 products in 1079 s
